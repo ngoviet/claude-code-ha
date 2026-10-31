@@ -1,48 +1,52 @@
 # Lượng dùng + chi phí **Claude API** (Claude Console, platform.claude.com/dashboard) — 2026-10-31.
+# Mỗi tài khoản Claude có Console (Organization) riêng ⇒ mỗi tài khoản 1 Admin key, 1 bộ sensor.
 #
 # Nguồn: Admin API chính thức (Usage & Cost, bản "legacy" vẫn được hỗ trợ):
 #   • GET /v1/organizations/cost_report           → USD theo ngày (`amount` = **cent**, chuỗi thập phân)
 #   • GET /v1/organizations/usage_report/messages → token theo ngày, nhóm theo model
 # Docs: https://platform.claude.com/docs/en/build-with-claude/usage-cost-api
 #
-# ⚠️ Cần secret `anthropic_admin_key` (sk-ant-admin01-…) trong /config/secrets.yaml.
-#    Thiếu secret thì check_config hỏng ⇒ **chỉ deploy file này sau khi đã có key**.
-#    Admin key chỉ tạo được khi Console là Organization (tài khoản cá nhân không có Admin API).
+# ⚠️ Secret trong /config/secrets.yaml: `anthropic_admin_key_vonupt`, `anthropic_admin_key_vokupt`
+#    (sk-ant-admin01-…; chỉ tạo được khi Console là Organization). Dán key xong:
+#    Công cụ nhà phát triển → YAML → Tải lại "RESTful" (`rest.reload`), không cần restart.
+#    Key chưa dán / sai ⇒ API trả lỗi, sensor `unavailable` (không hiện 0 giả).
 # ⚠️ Ngày tính theo **UTC** (= 07:00 giờ VN), giống trang dashboard Console.
 # ⚠️ Số liệu trễ ~5 phút; docs cho phép poll 1 lần/phút — ở đây 10 phút là đủ.
 # Hạn mức gói thuê bao (5 giờ / tuần) KHÔNG nằm ở đây: integration HACS `hass_claude_usage`.
+#
+# Tổng token = input chưa cache + ghi cache (5 phút + 1 giờ) + đọc cache + output.
+# Hai tài khoản giống hệt nhau trừ secret + tên ⇒ sửa một khối thì sửa cả khối kia.
 rest:
+  # ───────────────────────────── Vonupt
   - resource_template: >-
       https://api.anthropic.com/v1/organizations/cost_report?starting_at={{
       utcnow().strftime('%Y-%m-01T00:00:00Z') }}&limit=31
     headers:
-      x-api-key: !secret anthropic_admin_key
+      x-api-key: !secret anthropic_admin_key_vonupt
       anthropic-version: "2023-06-01"
     scan_interval: 600
     timeout: 30
     sensor:
-      - name: Claude API chi phí tháng này
-        unique_id: claude_api_cost_month
+      - name: Claude API Vonupt cost month
+        unique_id: claude_api_vonupt_cost_month
         unit_of_measurement: USD
         device_class: monetary
         state_class: total
         icon: mdi:cash-multiple
+        availability: "{{ value_json is defined and value_json.data is defined }}"
         value_template: >-
           {% set ns = namespace(c=0) %}
           {% for b in value_json.data %}{% for r in b.results %}
           {% set ns.c = ns.c + (r.amount | float(0)) %}
           {% endfor %}{% endfor %}
           {{ (ns.c / 100) | round(2) }}
-        json_attributes_path: "$"
-        json_attributes:
-          - has_more
-
-      - name: Claude API chi phí hôm nay
-        unique_id: claude_api_cost_today
+      - name: Claude API Vonupt cost today
+        unique_id: claude_api_vonupt_cost_today
         unit_of_measurement: USD
         device_class: monetary
         state_class: total
         icon: mdi:cash
+        availability: "{{ value_json is defined and value_json.data is defined }}"
         value_template: >-
           {% set b = value_json.data | last %}
           {{ ((b.results | map(attribute='amount') | map('float', 0) | sum) / 100) | round(2) }}
@@ -51,17 +55,17 @@ rest:
       https://api.anthropic.com/v1/organizations/usage_report/messages?starting_at={{
       (utcnow() - timedelta(days=6)).strftime('%Y-%m-%dT00:00:00Z') }}&bucket_width=1d&limit=7&group_by[]=model
     headers:
-      x-api-key: !secret anthropic_admin_key
+      x-api-key: !secret anthropic_admin_key_vonupt
       anthropic-version: "2023-06-01"
     scan_interval: 600
     timeout: 30
     sensor:
-      # Tổng token = input chưa cache + ghi cache (5 phút + 1 giờ) + đọc cache + output.
-      - name: Claude API token hôm nay
-        unique_id: claude_api_tokens_today
+      - name: Claude API Vonupt tokens today
+        unique_id: claude_api_vonupt_tokens_today
         unit_of_measurement: token
         state_class: total
         icon: mdi:counter
+        availability: "{{ value_json is defined and value_json.data is defined }}"
         value_template: >-
           {% set ns = namespace(t=0) %}
           {% for r in (value_json.data | last).results %}
@@ -71,12 +75,86 @@ rest:
              + (r.output_tokens or 0) %}
           {% endfor %}
           {{ ns.t }}
-
-      - name: Claude API token 7 ngày
-        unique_id: claude_api_tokens_7d
+      - name: Claude API Vonupt tokens 7d
+        unique_id: claude_api_vonupt_tokens_7d
         unit_of_measurement: token
         state_class: total
         icon: mdi:counter
+        availability: "{{ value_json is defined and value_json.data is defined }}"
+        value_template: >-
+          {% set ns = namespace(t=0) %}
+          {% for b in value_json.data %}{% for r in b.results %}
+          {% set cc = r.cache_creation or {} %}
+          {% set ns.t = ns.t + (r.uncached_input_tokens or 0) + (r.cache_read_input_tokens or 0)
+             + (cc.ephemeral_5m_input_tokens or 0) + (cc.ephemeral_1h_input_tokens or 0)
+             + (r.output_tokens or 0) %}
+          {% endfor %}{% endfor %}
+          {{ ns.t }}
+
+  # ───────────────────────────── Vokupt
+  - resource_template: >-
+      https://api.anthropic.com/v1/organizations/cost_report?starting_at={{
+      utcnow().strftime('%Y-%m-01T00:00:00Z') }}&limit=31
+    headers:
+      x-api-key: !secret anthropic_admin_key_vokupt
+      anthropic-version: "2023-06-01"
+    scan_interval: 600
+    timeout: 30
+    sensor:
+      - name: Claude API Vokupt cost month
+        unique_id: claude_api_vokupt_cost_month
+        unit_of_measurement: USD
+        device_class: monetary
+        state_class: total
+        icon: mdi:cash-multiple
+        availability: "{{ value_json is defined and value_json.data is defined }}"
+        value_template: >-
+          {% set ns = namespace(c=0) %}
+          {% for b in value_json.data %}{% for r in b.results %}
+          {% set ns.c = ns.c + (r.amount | float(0)) %}
+          {% endfor %}{% endfor %}
+          {{ (ns.c / 100) | round(2) }}
+      - name: Claude API Vokupt cost today
+        unique_id: claude_api_vokupt_cost_today
+        unit_of_measurement: USD
+        device_class: monetary
+        state_class: total
+        icon: mdi:cash
+        availability: "{{ value_json is defined and value_json.data is defined }}"
+        value_template: >-
+          {% set b = value_json.data | last %}
+          {{ ((b.results | map(attribute='amount') | map('float', 0) | sum) / 100) | round(2) }}
+
+  - resource_template: >-
+      https://api.anthropic.com/v1/organizations/usage_report/messages?starting_at={{
+      (utcnow() - timedelta(days=6)).strftime('%Y-%m-%dT00:00:00Z') }}&bucket_width=1d&limit=7&group_by[]=model
+    headers:
+      x-api-key: !secret anthropic_admin_key_vokupt
+      anthropic-version: "2023-06-01"
+    scan_interval: 600
+    timeout: 30
+    sensor:
+      - name: Claude API Vokupt tokens today
+        unique_id: claude_api_vokupt_tokens_today
+        unit_of_measurement: token
+        state_class: total
+        icon: mdi:counter
+        availability: "{{ value_json is defined and value_json.data is defined }}"
+        value_template: >-
+          {% set ns = namespace(t=0) %}
+          {% for r in (value_json.data | last).results %}
+          {% set cc = r.cache_creation or {} %}
+          {% set ns.t = ns.t + (r.uncached_input_tokens or 0) + (r.cache_read_input_tokens or 0)
+             + (cc.ephemeral_5m_input_tokens or 0) + (cc.ephemeral_1h_input_tokens or 0)
+             + (r.output_tokens or 0) %}
+          {% endfor %}
+          {{ ns.t }}
+      - name: Claude API Vokupt tokens 7d
+        unique_id: claude_api_vokupt_tokens_7d
+        unit_of_measurement: token
+        state_class: total
+        icon: mdi:counter
+        availability: "{{ value_json is defined and value_json.data is defined }}"
         value_template: >-
           {% set ns = namespace(t=0) %}
           {% for b in value_json.data %}{% for r in b.results %}

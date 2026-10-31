@@ -1,38 +1,34 @@
-"""Đẩy dashboard "Claude Code" (/claude-code): hạn mức 2 tài khoản thuê bao + lượng dùng API Console.
+"""Đẩy dashboard "Claude Code" (/claude-code): hạn mức 2 tài khoản thuê bao + lượng dùng API Console của từng tài khoản.
 
-Chạy:  python dashboards/claude/push.py          → chỉ ghi dashboard (WS lovelace/config/save)
-       python dashboards/claude/push.py --api    → thêm: chép ANTHROPIC_ADMIN_KEY (.env) vào /config/secrets.yaml
-                                                   + packages/62_claude_api_console.yaml, check_config, restart HA
+Chạy:  python dashboards/claude/push.py   → ghi dashboard (WS lovelace/config/save; sửa .storage không có tác dụng)
 Nguồn hạn mức: integration HACS `hass_claude_usage` (trickv, v10), mỗi tài khoản 1 entry OAuth.
-Entity đã đổi tên gọn, không chứa tên gói: sensor.claude_<tài khoản>_* (tài khoản = vokupt, vonupt).
+Entity đã đổi tên gọn, không chứa tên gói: sensor.claude_<tài khoản>_* (tài khoản = vonupt, vokupt).
+API Console: packages/62_claude_api_console.yaml → sensor.claude_api_<tài khoản>_*; Admin key dán thẳng vào
+/config/secrets.yaml trên HA (`anthropic_admin_key_<tài khoản>`) rồi tải lại "RESTful".
 Tài liệu: docs/claude-code-quota.md
 """
 from __future__ import annotations
 
-import base64
 import json
 import sys
-import time
-import urllib.request
 from pathlib import Path
 
-import paramiko
 import websocket  # type: ignore
 
 sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 HERE = Path(__file__).resolve().parent
 ROOT = HERE.parents[1]
 HA = "192.168.10.15:8123"
-PACKAGE = ROOT / "packages" / "62_claude_api_console.yaml"
 DASHBOARD_META = {
     "url_path": "claude-code", "title": "Claude Code", "icon": "mdi:robot-outline",
     "show_in_sidebar": True, "require_admin": False, "mode": "storage",
 }
-# (slug entity, nhãn hiển thị). Thêm tài khoản: thêm entry trong HA, đổi entity_id sang sensor.claude_<slug>_*, thêm dòng ở đây
+# (slug entity, nhãn hiển thị). Thêm tài khoản: thêm entry trong HA, đổi entity_id sang sensor.claude_<slug>_*,
+# thêm khối REST + secret trong packages/62_claude_api_console.yaml, thêm dòng ở đây
 ACCOUNTS = [("vonupt", "Vonupt"), ("vokupt", "Vokupt")]
 SEVERITY = {"green": 0, "yellow": 60, "red": 85}
 
-# Đếm ngược tới mốc reset; "—" khi chưa có cửa sổ (vd phiên 5 giờ chưa mở)
+# Đếm ngược tới mốc reset; khi chưa có cửa sổ (vd phiên 5 giờ chưa mở) thì nói rõ
 COUNTDOWN = (
     "{% macro cd(e) %}{% set t = states(e) | as_datetime %}"
     "{% if t %}{% set s = (t - now()).total_seconds() | int %}"
@@ -44,6 +40,7 @@ COUNTDOWN = (
 
 def account_section(slug: str, label: str) -> dict:
     s = f"sensor.claude_{slug}"
+    a = f"sensor.claude_api_{slug}"
     md = (
         COUNTDOWN
         # Không hiện tên gói: API profile ghi "Max" trong khi desktop app ghi "Ultra" cho cùng tài khoản
@@ -56,6 +53,13 @@ def account_section(slug: str, label: str) -> dict:
         + f"\n{{% set st = states['{s}_week_usage'] %}}"
         + "<small>Đọc API {{ ((now() - st.last_reported).total_seconds() // 60) | int if st else '?' }} phút trước · poll 5 phút/lần</small>"
     )
+    no_key = (
+        f"{{% if not has_value('{a}_cost_month') %}}**API Console:** chưa có số liệu. Dán Admin key "
+        f"(`sk-ant-admin01-…`) của {label} vào `/config/secrets.yaml`, dòng `anthropic_admin_key_{slug}`, "
+        "rồi Công cụ nhà phát triển → YAML → Tải lại **RESTful**.{% endif %}"
+    )
+    # card conditional coi entity chưa có giá trị là không khớp ⇒ khối số liệu chỉ hiện khi có key đúng
+    has = {"condition": "state", "entity": f"{a}_cost_month", "state_not": "unavailable"}
     return {
         "type": "grid",
         "cards": [
@@ -67,6 +71,15 @@ def account_section(slug: str, label: str) -> dict:
             {"type": "gauge", "entity": f"{s}_weekly_fable_limit_usage", "name": "Tuần · Fable", "unit": "%",
              "min": 0, "max": 100, "needle": True, "severity": SEVERITY, "grid_options": {"columns": 4}},
             {"type": "markdown", "content": md},
+            {"type": "conditional", "conditions": [has], "card": {
+                "type": "entities", "title": "API · Claude Console", "state_color": False, "entities": [
+                    {"entity": f"{a}_cost_today", "name": "Chi phí hôm nay (UTC)"},
+                    {"entity": f"{a}_cost_month", "name": "Chi phí tháng này"},
+                    {"entity": f"{a}_tokens_today", "name": "Token hôm nay"},
+                    {"entity": f"{a}_tokens_7d", "name": "Token 7 ngày"},
+                ], "footer": {"type": "graph", "entity": f"{a}_cost_month", "hours_to_show": 720}}},
+            {"type": "markdown", "content": no_key, "visibility": [
+                {"condition": "state", "entity": f"{a}_cost_month", "state": "unavailable"}]},
         ],
     }
 
@@ -86,36 +99,15 @@ def history_section() -> dict:
             {"type": "heading", "heading": "Lịch sử 7 ngày", "icon": "mdi:chart-line"},
             {**common, "header": {"show": True, "title": "% hạn mức tuần"}, "series": week},
             {**common, "graph_span": "2d", "header": {"show": True, "title": "% phiên 5 giờ (2 ngày)"}, "series": sess},
-        ],
-    }
-
-
-def api_section() -> dict:
-    no_key = ("Chưa có số liệu API. Cần **Admin key** của Claude Console (`sk-ant-admin01-…`, "
-              "Console phải là Organization): dán vào `.env` với tên `ANTHROPIC_ADMIN_KEY` rồi chạy "
-              "`python dashboards/claude/push.py --api`.")
-    has = {"condition": "state", "entity": "sensor.claude_api_cost_month", "state_not": "unavailable"}
-    return {
-        "type": "grid",
-        "cards": [
-            {"type": "heading", "heading": "API · Claude Console", "icon": "mdi:api"},
-            # card conditional coi entity CHƯA TỒN TẠI là không khớp mọi điều kiện → lời nhắc thiếu key nằm trong markdown
-            {"type": "conditional", "conditions": [has], "card": {"type": "entities", "state_color": False, "entities": [
-                {"entity": "sensor.claude_api_cost_today", "name": "Chi phí hôm nay (UTC)"},
-                {"entity": "sensor.claude_api_cost_month", "name": "Chi phí tháng này"},
-                {"entity": "sensor.claude_api_tokens_today", "name": "Token hôm nay"},
-                {"entity": "sensor.claude_api_tokens_7d", "name": "Token 7 ngày"},
-            ], "footer": {"type": "graph", "entity": "sensor.claude_api_cost_month", "hours_to_show": 720}}},
-            {"type": "markdown", "content": "{% if not has_value('sensor.claude_api_cost_month') %}" + no_key
-             + "\n\n{% endif %}<small>Ngày tính theo UTC (đổi ngày lúc 07:00 giờ VN), giống "
-             "[dashboard Console](https://platform.claude.com/dashboard). Số trễ ~5 phút.</small>"},
+            {"type": "markdown", "content": "<small>API Console: ngày tính theo UTC (đổi ngày lúc 07:00 giờ VN), giống "
+             "[dashboard Console](https://platform.claude.com/dashboard); số trễ ~5 phút, HA đọc 10 phút/lần.</small>"},
         ],
     }
 
 
 CONFIG = {"title": "Claude Code", "views": [{
-    "title": "Hạn mức", "path": "han-muc", "icon": "mdi:gauge", "type": "sections", "max_columns": 3,
-    "sections": [*(account_section(s, l) for s, l in ACCOUNTS), api_section(), history_section()],
+    "title": "Hạn mức", "path": "han-muc", "icon": "mdi:gauge", "type": "sections", "max_columns": 2,
+    "sections": [*(account_section(s, l) for s, l in ACCOUNTS), history_section()],
 }]}
 
 
@@ -128,36 +120,6 @@ def load_env() -> dict[str, str]:
             k, v = line.strip().split("=", 1)
             env[k] = v.strip().strip('"')
     return env
-
-
-def ssh_run(ssh: paramiko.SSHClient, cmd: str, data: bytes | None = None) -> str:
-    stdin, stdout, stderr = ssh.exec_command(cmd)
-    if data is not None:
-        stdin.write(data)
-        stdin.channel.shutdown_write()
-    if stdout.channel.recv_exit_status() != 0:
-        raise SystemExit(f"Lệnh SSH lỗi: {cmd.split('&&')[0]} → {stderr.read().decode()}")
-    return stdout.read().decode()
-
-
-def deploy_api(env: dict[str, str]) -> None:
-    key = env.get("ANTHROPIC_ADMIN_KEY", "")
-    if not key.startswith("sk-ant-admin"):
-        raise SystemExit("Thiếu ANTHROPIC_ADMIN_KEY (sk-ant-admin…) trong .env")
-    ssh = paramiko.SSHClient()
-    ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-    ssh.connect("192.168.10.15", username="vokupt", password=env["HA_PASS"], timeout=10)
-    try:
-        # Thay dòng secret cũ (nếu có), giữ nguyên phần còn lại; key đi qua stdin, không nằm trên dòng lệnh
-        line = base64.b64encode(f"anthropic_admin_key: {key}\n".encode())
-        ssh_run(ssh, "sudo cp /config/secrets.yaml /config/secrets.yaml.bak_claude && "
-                     "sudo sed -i '/^anthropic_admin_key:/d' /config/secrets.yaml && "
-                     "base64 -d | sudo tee -a /config/secrets.yaml >/dev/null", line)
-        print("✓ secret anthropic_admin_key → /config/secrets.yaml (bản cũ: secrets.yaml.bak_claude)")
-        ssh_run(ssh, f"sudo sh -c 'base64 -d > /config/packages/{PACKAGE.name}'", base64.b64encode(PACKAGE.read_bytes()))
-        print(f"✓ {PACKAGE.relative_to(ROOT)} → /config/packages/")
-    finally:
-        ssh.close()
 
 
 class WS:
@@ -181,26 +143,7 @@ class WS:
 
 
 def main() -> None:
-    env = load_env()
-    if "--api" in sys.argv:
-        deploy_api(env)
-        req = urllib.request.Request(f"http://{HA}/api/config/core/check_config", method="POST",
-                                     headers={"Authorization": f"Bearer {env['HA_TOKEN']}"})
-        check = json.load(urllib.request.urlopen(req, timeout=120))
-        if check.get("result") != "valid":
-            # gỡ package vừa chép để cấu hình trên đĩa trở lại như trước (secret thừa không làm hỏng gì)
-            ssh = paramiko.SSHClient()
-            ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-            ssh.connect("192.168.10.15", username="vokupt", password=env["HA_PASS"], timeout=10)
-            ssh_run(ssh, f"sudo rm -f /config/packages/{PACKAGE.name}")
-            ssh.close()
-            raise SystemExit(f"check_config lỗi, đã gỡ package, KHÔNG restart: {check.get('errors')}")
-        print("✓ check_config: valid")
-        ws = WS(env["HA_TOKEN"])
-        ws.call({"type": "call_service", "domain": "homeassistant", "service": "restart"})
-        print("Đã gửi restart; đợi HA lên lại…")
-        time.sleep(90)
-    ws = WS(env["HA_TOKEN"])
+    ws = WS(load_env()["HA_TOKEN"])
     if not any(d["url_path"] == DASHBOARD_META["url_path"] for d in ws.call({"type": "lovelace/dashboards/list"})["result"]):
         ws.call({"type": "lovelace/dashboards/create", **DASHBOARD_META})
         print(f"Đã tạo dashboard /{DASHBOARD_META['url_path']}")
