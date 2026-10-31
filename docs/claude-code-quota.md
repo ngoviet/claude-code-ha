@@ -24,7 +24,9 @@ API: `sensor.claude_api_<tài khoản>_cost_today`, `_cost_month` (USD), `_token
 
 ## Vận hành
 
-- Sửa dashboard: `python dashboards/claude/push.py` (WS `lovelace/config/save`; sửa `.storage` không có tác dụng).
+- Giao diện: một card tự viết toàn trang [`dashboards/claude/claude-code-card.js`](../dashboards/claude/claude-code-card.js) (view `panel`, không cần card HACS): mỗi tài khoản 1 khối — vòng % tuần có vạch "tiêu đều", thanh 5 giờ / tuần / từng model (tự dò `*_weekly_*_limit_usage`), đếm ngược, nhãn nhịp (Tiêu nhanh / Đúng nhịp / Còn dư nhiều), khối API; dưới cùng 2 biểu đồ lịch sử (tuần 7 ngày, phiên 5 giờ 2 ngày) lấy qua WS `history/history_during_period` 10 phút/lần.
+- Màu: bảng **palette-axi** (`generate --seed "#d97757" --mode dark`, nền nâu ấm cùng hue cam Claude, Vonupt = tím, Vokupt = xanh ngọc, ok/warn/bad cùng dải sáng). Token ghi bằng hex đã kẹp sRGB; kiểm: `palette-axi analyze dashboards/claude/claude-code-card.js --bg "#1e0c06"` phải 7/7.
+- Sửa dashboard: `python dashboards/claude/push.py` — chép JS lên `/config/www/claude/` qua SSH, cập nhật resource `?v=<hash>` (app tải bản mới), ghi view bằng WS `lovelace/config/save` (sửa `.storage` không có tác dụng).
 - Bật phần API: trong `/config/secrets.yaml` trên HA đã có sẵn 2 dòng `anthropic_admin_key_vonupt` / `_vokupt` giá trị `"DAN_ADMIN_KEY_VAO_DAY"` → dán key vào giữa hai dấu nháy, rồi **khởi động lại HA**. Không cần PC1.
 - Thêm tài khoản: Add Integration → Claude Usage (trình duyệt đăng nhập claude.ai đúng tài khoản), đổi entity_id sang `sensor.claude_<slug>_*`, thêm vào `ACCOUNTS` trong `push.py`.
 - Chuỗi refresh OAuth sống ~30 ngày: khi HA báo *Re-authenticate* trên entry Claude Usage thì đăng nhập lại; card hiện "⚠️ Lỗi đọc API" khi `api_error = 1`.
@@ -34,4 +36,5 @@ API: `sensor.claude_api_<tài khoản>_cost_today`, `_cost_month` (USD), `_token
 - Tên gói trong device ("Max") khác desktop app ("Ultra") cho cùng tài khoản ⇒ dashboard không hiện tên gói.
 - `rest.reload` **không** nạp key mới: sensor cũ cùng unique_id vẫn chạy với key cũ, bộ mới bị bỏ qua (log *"unique ID … already exists - ignoring"*) ⇒ đổi key phải restart HA.
 - Admin API trả **403** với tổ chức cá nhân ("… Individual Org") dù key đúng loại ⇒ Console → Tổ chức → *Chuyển đổi thành nhóm*. Key `sk-ant-usr-…` gắn workspace ⇒ **401**; phải tạo key không gắn workspace (scope organization).
-- Card `conditional` coi entity **chưa tồn tại** là không khớp mọi điều kiện (kể cả `state: unavailable`) ⇒ lời nhắc "chưa có Admin key" nằm trong markdown với `has_value()`.
+- Card `conditional` coi entity **chưa tồn tại** là không khớp mọi điều kiện (kể cả `state: unavailable`) ⇒ card tự viết tự hiện lời nhắc "chưa có Admin key" khi sensor API thiếu hoặc `unavailable`.
+- Giá trị `oklch()` làm tròn 3 chữ số có thể lệch nhẹ ra ngoài sRGB (palette-axi báo luật 7-gamut) ⇒ ghi token bằng hex đã kẹp.
