@@ -6,7 +6,7 @@
  *                             week_usage_pace (= % đã dùng − % thời gian tuần đã trôi), api_error
  *   sensor.claude_api_<tk>_*  packages/62_claude_api_console.yaml (Admin API, 10 phút/lần)
  *   Lịch sử: WS history/history_during_period (7 ngày tuần, 2 ngày phiên), tải lại 10 phút/lần.
- * Bảng màu: palette-axi generate --seed "#d97757" --mode dark --roles primary,acc1=295,acc2=195,ok,warn,bad (7/7 quy tắc).
+ * Bảng màu: palette-axi generate --preset neon-dark (nền navy, viền + quầng sáng neon; 7/7 quy tắc).
  *   Màu tài khoản (acc1/acc2) chỉ để nhận diện; mức đầy dùng ok/warn/bad (<60 / <85 / ≥85 %).
  *
  * Cấu hình:
@@ -40,10 +40,10 @@ function dem(iso) {
 const CSS = `
 :host {
   color-scheme: dark;
-  /* hex = bản đã kẹp vào sRGB (oklch làm tròn 3 số lệch nhẹ ra ngoài gamut) */
-  --bg-edge: #110705; --bg: #1e0c06; --surface: #2b150d; --glow: #3a190f; --border: #4e2f24;
-  --dim: #d4ada0; --fg: #f2e5e1; --primary: #ff9573; --acc1: #bba4ff; --acc2: #00c4c5;
-  --ok: #11cb60; --warn: #eea200; --bad: #ff938b;
+  /* neon-dark của palette-axi; hex = bản đã kẹp vào sRGB. acc1 = fuchsia (Vonupt), acc2 = cyan (Vokupt) */
+  --bg-edge: #060a14; --bg: #0a1122; --surface: #0e182e; --glow: #142443; --border: #1e2b4a;
+  --dim: #a2b7d7; --fg: #e6edf7; --primary: #22d3ee; --acc1: #e879f9; --acc2: #22d3ee;
+  --ok: #22c55e; --warn: #f59e0b; --bad: #ff716a;
   --track: color-mix(in oklch, var(--border) 70%, transparent);
   display: block;
 }
@@ -65,15 +65,19 @@ h1 .logo { width: 30px; height: 30px; border-radius: 9px; display: grid; place-i
   border-radius: 20px; padding: 20px; display: flex; flex-direction: column; gap: 18px; min-width: 0;
   backdrop-filter: blur(8px);
 }
+.the[style*="--c"] { border-color: color-mix(in oklch, var(--c) 40%, var(--border));
+  box-shadow: 0 0 0 1px color-mix(in oklch, var(--c) 12%, transparent), 0 0 28px -6px color-mix(in oklch, var(--c) 45%, transparent),
+    inset 0 1px 0 color-mix(in oklch, var(--c) 18%, transparent); }
 .dau { display: flex; align-items: center; gap: 10px; }
-.cham { width: 10px; height: 10px; border-radius: 50%; background: var(--c); box-shadow: 0 0 0 4px color-mix(in oklch, var(--c) 22%, transparent); }
+.cham { width: 10px; height: 10px; border-radius: 50%; background: var(--c); box-shadow: 0 0 0 3px color-mix(in oklch, var(--c) 22%, transparent), 0 0 12px var(--c); }
 .ten { font-size: 1.15rem; font-weight: 600; }
 .nhan { margin-left: auto; font-size: 0.75rem; font-weight: 600; letter-spacing: 0.02em; padding: 3px 10px; border-radius: 999px;
   color: var(--m); background: color-mix(in oklch, var(--m) 15%, transparent); border: 1px solid color-mix(in oklch, var(--m) 35%, transparent); }
 .chinh { display: grid; grid-template-columns: auto 1fr; gap: 22px; align-items: center; }
 @media (max-width: 460px) { .chinh { grid-template-columns: 1fr; justify-items: center; } }
 .vong { position: relative; width: 148px; height: 148px; }
-.vong svg { width: 100%; height: 100%; transform: rotate(-90deg); }
+.vong svg { width: 100%; height: 100%; transform: rotate(-90deg); overflow: visible; }
+.vong circle.do { filter: drop-shadow(0 0 6px currentColor); }
 .vong .so { position: absolute; inset: 0; display: grid; place-content: center; text-align: center; }
 .vong .so b { font-size: 2.4rem; font-weight: 650; letter-spacing: -0.03em; line-height: 1; }
 .vong .so b small { font-size: 1rem; font-weight: 500; color: var(--dim); margin-left: 1px; }
@@ -84,7 +88,7 @@ h1 .logo { width: 30px; height: 30px; border-radius: 9px; display: grid; place-i
 .dong .tren .tieu { font-weight: 500; }
 .dong .tren .gt { margin-left: auto; font-weight: 650; font-size: 1.05rem; }
 .ray { position: relative; height: 8px; border-radius: 999px; background: var(--track); overflow: visible; }
-.ray i { position: absolute; inset: 0 auto 0 0; border-radius: 999px; background: var(--m); }
+.ray i { position: absolute; inset: 0 auto 0 0; border-radius: 999px; background: var(--m); box-shadow: 0 0 10px color-mix(in oklch, var(--m) 70%, transparent); }
 .ray .moc { position: absolute; top: -4px; bottom: -4px; width: 2px; border-radius: 2px; background: var(--fg); opacity: 0.7; }
 .dong .duoi { font-size: 0.78rem; color: var(--dim); display: flex; gap: 6px; flex-wrap: wrap; }
 .dong .duoi b { color: var(--fg); font-weight: 600; }
@@ -163,7 +167,7 @@ class ClaudeCodeCard extends HTMLElement {
     })();
     return `<div class="vong"><svg viewBox="0 0 148 148" aria-hidden="true">
       <circle cx="74" cy="74" r="${r}" fill="none" stroke="var(--track)" stroke-width="13"/>
-      ${v > 0 ? `<circle class="do" cx="74" cy="74" r="${r}" fill="none" stroke="${mau}" stroke-width="13" stroke-linecap="round"
+      ${v > 0 ? `<circle class="do" cx="74" cy="74" r="${r}" fill="none" stroke="${mau}" style="color:${mau}" stroke-width="13" stroke-linecap="round"
         stroke-dasharray="${(v / 100) * C} ${C}"/>` : ""}${vach}</svg>
       <div class="so"><b>${fmtPct(p)}<small>%</small></b><span>Tuần</span></div></div>`;
   }
@@ -239,7 +243,7 @@ class ClaudeCodeCard extends HTMLElement {
       let d = `M${x(Math.max(t0, pts[0][0]))},${y(pts[0][1])}`;
       for (let k = 1; k < pts.length; k++) d += `H${x(pts[k][0])}V${y(pts[k][1])}`;
       const den = `${d}V${y(0)}H${x(Math.max(t0, pts[0][0]))}Z`;
-      g += `<path d="${den}" fill="${ACC[i % 2]}" opacity="0.10"/><path d="${d}" fill="none" stroke="${ACC[i % 2]}" stroke-width="2.2" stroke-linejoin="round"/>`;
+      g += `<path d="${den}" fill="${ACC[i % 2]}" opacity="0.14"/><path d="${d}" fill="none" stroke="${ACC[i % 2]}" stroke-width="2.2" stroke-linejoin="round" style="filter:drop-shadow(0 0 4px ${ACC[i % 2]})"/>`;
       g += `<circle cx="${x(t1)}" cy="${y(cuoi ?? 0)}" r="4" fill="${ACC[i % 2]}" stroke="var(--bg)" stroke-width="2"/>`;
       chu.push(`<span style="--c:${ACC[i % 2]}"><i></i>${esc(a.name)} · ${fmtPct(cuoi)}%</span>`);
     });
