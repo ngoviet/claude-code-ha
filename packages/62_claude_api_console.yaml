@@ -8,7 +8,8 @@
 #
 # ⚠️ Secret trong /config/secrets.yaml: `anthropic_admin_key_vonupt`, `anthropic_admin_key_vokupt`
 #    (sk-ant-admin01-…; chỉ tạo được khi Console là Organization). Dán key xong:
-#    Công cụ nhà phát triển → YAML → Tải lại "RESTful" (`rest.reload`), không cần restart.
+#    **khởi động lại HA**. `rest.reload` KHÔNG đủ: sensor cũ (cùng unique_id) vẫn chạy với key cũ,
+#    bộ mới bị bỏ qua ("Platform rest does not generate unique IDs … already exists - ignoring") — gặp 2026-10-31.
 #    Key chưa dán / sai ⇒ API trả lỗi, sensor `unavailable` (không hiện 0 giả).
 # ⚠️ Ngày tính theo **UTC** (= 07:00 giờ VN), giống trang dashboard Console.
 # ⚠️ Số liệu trễ ~5 phút; docs cho phép poll 1 lần/phút — ở đây 10 phút là đủ.

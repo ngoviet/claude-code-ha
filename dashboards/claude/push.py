@@ -4,7 +4,8 @@ Chạy:  python dashboards/claude/push.py   → ghi dashboard (WS lovelace/confi
 Nguồn hạn mức: integration HACS `hass_claude_usage` (trickv, v10), mỗi tài khoản 1 entry OAuth.
 Entity đã đổi tên gọn, không chứa tên gói: sensor.claude_<tài khoản>_* (tài khoản = vonupt, vokupt).
 API Console: packages/62_claude_api_console.yaml → sensor.claude_api_<tài khoản>_*; Admin key dán thẳng vào
-/config/secrets.yaml trên HA (`anthropic_admin_key_<tài khoản>`) rồi tải lại "RESTful".
+/config/secrets.yaml trên HA (`anthropic_admin_key_<tài khoản>`) rồi khởi động lại HA
+(rest.reload để sensor cũ giữ key cũ: "unique ID … already exists - ignoring").
 Tài liệu: docs/claude-code-quota.md
 """
 from __future__ import annotations
@@ -56,7 +57,7 @@ def account_section(slug: str, label: str) -> dict:
     no_key = (
         f"{{% if not has_value('{a}_cost_month') %}}**API Console:** chưa có số liệu. Dán Admin key "
         f"(`sk-ant-admin01-…`) của {label} vào `/config/secrets.yaml`, dòng `anthropic_admin_key_{slug}`, "
-        "rồi Công cụ nhà phát triển → YAML → Tải lại **RESTful**.{% endif %}"
+        "rồi **khởi động lại HA** (Cài đặt → ⋮ → Khởi động lại; tải lại RESTful KHÔNG nạp key mới).{% endif %}"
     )
     # card conditional coi entity chưa có giá trị là không khớp ⇒ khối số liệu chỉ hiện khi có key đúng
     has = {"condition": "state", "entity": f"{a}_cost_month", "state_not": "unavailable"}
