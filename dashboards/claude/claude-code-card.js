@@ -7,7 +7,7 @@
  *   sensor.claude_api_<tk>_*  packages/62_claude_api_console.yaml (Admin API, 10 phút/lần)
  *   Số dư + hạn tín dụng: không API nào trả ⇒ credit_balance = số dư mốc − chi phí từ ngày mốc; nút sửa trên card ghi vào
  *   input_number.claude_api_<tk>_credit_base (nhập số Console đang hiện, card cộng lại phần đã trừ) và input_datetime *_credit_expiry.
- *   Lịch sử: WS history/history_during_period (7 ngày tuần, 2 ngày phiên), tải lại 10 phút/lần.
+ *   Lịch sử: WS history/history_during_period (7 ngày, mỗi tài khoản một biểu đồ), tải lại 10 phút/lần.
  * Bảng màu: palette-axi generate --preset neon-dark (nền navy, viền + quầng sáng neon; 7/7 quy tắc).
  *   Màu tài khoản (acc1/acc2) chỉ để nhận diện; mức đầy dùng ok/warn/bad (<60 / <85 / ≥85 %).
  *
@@ -329,33 +329,34 @@ class ClaudeCodeCard extends HTMLElement {
     </section>`;
   }
 
-  // Biểu đồ đường: mỗi tài khoản một màu, trục 0–100 %
-  _duong(tieu, ngay, hau) {
+  // Biểu đồ đường của một tài khoản, trục 0–100 %: tuần (màu tài khoản, có nền) + phiên 5 giờ (đường mảnh)
+  _duong(a, i, ngay = 7) {
     const W = 600, H = 190, L = 30, R = 8, T = 10, B = 24;
     const t1 = Date.now(), t0 = t1 - ngay * 864e5;
     const x = (t) => L + ((t - t0) / (t1 - t0)) * (W - L - R), y = (v) => T + (1 - v / 100) * (H - T - B);
     let g = "";
     for (const v of [0, 25, 50, 75, 100]) g += `<line x1="${L}" x2="${W - R}" y1="${y(v)}" y2="${y(v)}" stroke="var(--border)" stroke-dasharray="${v ? "3 4" : ""}"/><text x="${L - 6}" y="${y(v) + 3}" text-anchor="end">${v}</text>`;
-    const buoc = ngay > 2 ? 864e5 : 6 * 36e5;
-    for (let t = Math.ceil(t0 / buoc) * buoc; t <= t1; t += buoc) {
+    for (let t = Math.ceil(t0 / 864e5) * 864e5; t <= t1; t += 864e5) {
       const d = new Date(t);
-      g += `<text x="${x(t)}" y="${H - 6}" text-anchor="middle">${ngay > 2 ? `${pad(d.getDate())}/${pad(d.getMonth() + 1)}` : `${pad(d.getHours())}h`}</text>`;
+      g += `<text x="${x(t)}" y="${H - 6}" text-anchor="middle">${pad(d.getDate())}/${pad(d.getMonth() + 1)}</text>`;
     }
-    const chu = [];
-    this._cfg.accounts.forEach((a, i) => {
+    const mau = ACC[i % 2], chu = [];
+    // Vẽ phiên trước để đường tuần nằm trên
+    for (const [hau, nhan, c, tuan] of [["session_usage", "Phiên 5 giờ", "var(--fg)", false], ["week_usage", "Tuần · mọi model", mau, true]]) {
       const pts = (this._ls?.[`sensor.claude_${a.slug}_${hau}`] || []).filter((p) => p[0] >= t0);
       const cuoi = this._n(`sensor.claude_${a.slug}_${hau}`);
       if (cuoi !== null) pts.push([t1, cuoi]);
-      if (!pts.length) return;
+      if (!pts.length) continue;
       // bậc thang: giữ giá trị tới lần đổi kế tiếp
       let d = `M${x(Math.max(t0, pts[0][0]))},${y(pts[0][1])}`;
       for (let k = 1; k < pts.length; k++) d += `H${x(pts[k][0])}V${y(pts[k][1])}`;
-      const den = `${d}V${y(0)}H${x(Math.max(t0, pts[0][0]))}Z`;
-      g += `<path d="${den}" fill="${ACC[i % 2]}" opacity="0.14"/><path d="${d}" fill="none" stroke="${ACC[i % 2]}" stroke-width="2.2" stroke-linejoin="round" style="filter:drop-shadow(0 0 4px ${ACC[i % 2]})"/>`;
-      g += `<circle cx="${x(t1)}" cy="${y(cuoi ?? 0)}" r="4" fill="${ACC[i % 2]}" stroke="var(--bg)" stroke-width="2"/>`;
-      chu.push(`<span style="--c:${ACC[i % 2]}"><i></i>${esc(a.name)} · ${fmtPct(cuoi)}%</span>`);
-    });
-    return `<section class="the bd"><div class="dau"><h2>${esc(tieu)}</h2></div>
+      if (tuan) g += `<path d="${d}V${y(0)}H${x(Math.max(t0, pts[0][0]))}Z" fill="${c}" opacity="0.14"/>`;
+      g += `<path d="${d}" fill="none" stroke="${c}" stroke-linejoin="round" ${tuan ? `stroke-width="2.2" style="filter:drop-shadow(0 0 4px ${c})"` : `stroke-width="1.2" opacity="0.7"`}/>`;
+      g += `<circle cx="${x(t1)}" cy="${y(cuoi ?? 0)}" r="4" fill="${c}" stroke="var(--bg)" stroke-width="2"/>`;
+      chu.unshift(`<span style="--c:${c}"><i></i>${nhan} · ${fmtPct(cuoi)}%</span>`);
+    }
+    const tieu = `${a.name} · % hạn mức ${ngay} ngày`;
+    return `<section class="the bd" style="--c:${mau}"><div class="dau"><span class="cham"></span><h2>${esc(tieu)}</h2></div>
       <svg viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(tieu)}">${g}</svg><div class="chu">${chu.join("")}</div></section>`;
   }
 
@@ -369,7 +370,7 @@ class ClaudeCodeCard extends HTMLElement {
         <div class="phu">Hạn mức gói thuê bao và chi phí API của ${accs.length} tài khoản</div></div>
         <div class="phu">${new Date().toLocaleString("vi-VN", { hour: "2-digit", minute: "2-digit", weekday: "short", day: "2-digit", month: "2-digit" })}</div></header>
       <div class="luoi">${accs.map((a, i) => this._taiKhoan(a, i)).join("")}</div>
-      <div class="bieudo">${this._duong("% hạn mức tuần · 7 ngày", 7, "week_usage")}${this._duong("% phiên 5 giờ · 2 ngày", 2, "session_usage")}</div>
+      <div class="bieudo">${accs.map((a, i) => this._duong(a, i)).join("")}</div>
       <div class="chan">Mức đầy: xanh &lt; 60 % · vàng &lt; 85 % · đỏ ≥ 85 %. API tính ngày theo UTC (đổi ngày lúc 07:00 giờ VN), số chi phí có thể trễ vài giờ so với
         <a href="https://platform.claude.com/dashboard" target="_blank" rel="noopener">dashboard Console</a>.</div>
     </div>`;
