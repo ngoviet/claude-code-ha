@@ -17,6 +17,7 @@
 #    số dư = `credit_base` (số dư lúc 00:00 UTC ngày `credit_base_date`) − chi phí từ ngày đó (analytics).
 #    Automation dưới đây chốt ngày đã đóng vào `credit_base` mỗi ngày, nên cửa sổ không vượt 31 ngày của API.
 #    Sau mỗi lần **gói cấp credit mới** (Max 100, Ultra 200 USD/kỳ, hết kỳ mất phần thừa) hoặc nạp tiền: nhập lại số dư + hạn (nút sửa trên card).
+#    Ngày gia hạn gói `plan_renew` nhập tay từ claude.ai › Settings › Billing (không API nào trả); card tự dời từng tháng.
 #    Hạn dùng `credit_expiry` nhập tay từ Console › Billing › Promotional credits; credit tự mua hết hạn 1 năm sau ngày mua.
 # Hạn mức gói thuê bao (5 giờ / tuần) KHÔNG nằm ở đây: integration HACS `hass_claude_usage`.
 #
@@ -50,6 +51,16 @@ input_datetime:
     name: Claude API Vokupt ngày mốc số dư
     has_date: true
     has_time: false
+  claude_api_vonupt_plan_renew:
+    name: Claude Vonupt ngày gia hạn gói
+    has_date: true
+    has_time: false
+    icon: mdi:calendar-sync
+  claude_api_vokupt_plan_renew:
+    name: Claude Vokupt ngày gia hạn gói
+    has_date: true
+    has_time: false
+    icon: mdi:calendar-sync
   claude_api_vonupt_credit_expiry:
     name: Claude API Vonupt hạn tín dụng
     has_date: true

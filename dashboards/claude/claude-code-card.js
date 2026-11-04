@@ -29,6 +29,17 @@ const fmtTok = (v) => {
 };
 const pad = (n) => String(n).padStart(2, "0");
 const fmtNgay = (iso) => iso.split("-").reverse().join("/");
+const conNgay = (iso) => Math.ceil((new Date(`${iso}T23:59:59`) - Date.now()) / 864e5);
+// Gói tháng tự gia hạn: ngày đã nhập qua rồi thì dời từng tháng tới kỳ kế tiếp (không ghi lại helper)
+function kyToi(iso) {
+  const [y, m, d] = iso.split("-").map(Number);
+  for (let i = 0; i < 240; i++) {
+    const c = new Date(y, m - 1 + i, d);
+    const k = `${c.getFullYear()}-${pad(c.getMonth() + 1)}-${pad(c.getDate())}`;
+    if (conNgay(k) >= 0) return k;
+  }
+  return iso;
+}
 // Mốc reset → {con: "4 ngày 22 giờ", luc: "20:00 T4 05/11"}; null khi chưa có cửa sổ
 const THU = ["CN", "T2", "T3", "T4", "T5", "T6", "T7"];
 function dem(iso) {
@@ -113,6 +124,9 @@ h1 .logo { width: 30px; height: 30px; border-radius: 9px; display: grid; place-i
 .sua { all: unset; cursor: pointer; margin-left: 6px; color: var(--dim); font-size: 0.72rem; padding: 1px 7px; border-radius: 999px; border: 1px solid var(--border); }
 .sua:hover, .sua:focus-visible { color: var(--fg); border-color: var(--c); }
 .thang { grid-column: 1 / -1; }
+.goi { font-size: 0.85rem; color: var(--dim); display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.goi b { color: var(--fg); font-weight: 600; }
+.goi .sua { margin-left: 0; }
 .tang { font-size: 0.72rem; font-weight: 600; color: var(--dim); margin-left: 4px; }
 .goiy { grid-column: 1 / -1; font-size: 0.82rem; color: var(--dim); }
 .goiy code { color: var(--fg); background: var(--track); padding: 1px 5px; border-radius: 5px; }
@@ -170,21 +184,26 @@ class ClaudeCodeCard extends HTMLElement {
       this._hass.callService("input_number", "set_value", { value }, { entity_id: `input_number.claude_api_${tk}_credit_base` });
       return;
     }
-    const v = window.prompt("Ngày hết hạn tín dụng (dd/mm/yyyy, xem Console › Billing, nhiều đợt thì ghi hạn gần nhất):");
+    const goi = loai === "goi";
+    const v = window.prompt(goi ? "Ngày gia hạn gói (dd/mm/yyyy, xem claude.ai › Settings › Billing):"
+      : "Ngày hết hạn credit được tặng (dd/mm/yyyy, xem Console › Billing › Promotional credits):");
     if (v === null) return;
     const m = v.trim().match(/^(\d{1,2})[/.-](\d{1,2})[/.-](\d{4})$/);
     if (!m) { window.alert("Ngày không hợp lệ, ví dụ 15/06/2027"); return; }
     this._hass.callService("input_datetime", "set_datetime", { date: `${m[3]}-${pad(m[2])}-${pad(m[1])}` },
-      { entity_id: `input_datetime.claude_api_${tk}_credit_expiry` });
+      { entity_id: `input_datetime.claude_api_${tk}_${goi ? "plan_renew" : "credit_expiry"}` });
   }
 
   // Khối tín dụng: số dư, hạn dùng, còn dùng được bao lâu theo nhịp tháng này
   _tinDung(a, cost) {
     const tk = esc(a.slug), api = `sensor.claude_api_${a.slug}`;
     const du = this._n(`${api}_credit_balance`);
-    const hanIso = this._s(`input_datetime.claude_api_${a.slug}_credit_expiry`);
-    const coHan = (hanIso || "") > "2020"; // helper mới tạo tự lấy ngày hiện tại ⇒ để sẵn 2000-01-01 nghĩa là chưa nhập
-    const con = coHan ? Math.ceil((new Date(`${hanIso}T23:59:59`) - Date.now()) / 864e5) : null;
+    const nhap = this._s(`input_datetime.claude_api_${a.slug}_credit_expiry`);
+    // Credit tặng hết hạn cuối kỳ thanh toán ⇒ chưa nhập riêng thì lấy kỳ gia hạn gói
+    const goi = this._kyGoi(a), tuGoi = !((nhap || "") > "2020"); // helper mới tạo tự lấy ngày hiện tại ⇒ 2000-01-01 = chưa nhập
+    const hanIso = tuGoi ? goi : nhap;
+    const coHan = !!hanIso;
+    const con = coHan ? conNgay(hanIso) : null;
     const nhipNgay = cost ? cost / Math.max(1, new Date().getUTCDate()) : 0;
     const ngayHet = du !== null && nhipNgay > 0 ? Math.floor(du / nhipNgay) : null;
     // Credit gói không chuyển kỳ ⇒ so nhịp tiêu với hạn: phần tiêu không kịp sẽ mất
@@ -196,10 +215,22 @@ class ClaudeCodeCard extends HTMLElement {
         <div class="ct">${con !== null && con <= 0 ? "<b>Đã qua hạn, nhập lại số dư và hạn mới</b>"
           : mat !== null && mat > 0 ? `theo nhịp ${fmtUsd(nhipNgay)} USD/ngày, <b>~${fmtUsd(mat)} USD</b> sẽ mất khi hết hạn`
           : ngayHet === null ? "chưa có chi tiêu tháng này" : `đủ dùng <b>~${ngayHet.toLocaleString("vi-VN")} ngày</b> theo nhịp ${fmtUsd(nhipNgay)} USD/ngày`}</div>`}</div>
-      <div class="o han" style="--m:${mHan}"><span>Hạn dùng <button class="sua" data-sua="han" data-tk="${tk}">sửa</button></span>
-        ${coHan ? `<b>${esc(fmtNgay(hanIso))}</b><div class="ct">${con > 0 ? `còn <b>${con.toLocaleString("vi-VN")} ngày</b>` : "<b>đã hết hạn</b>"}</div>`
+      <div class="o han" style="--m:${mHan}"><span>Hạn credit tặng <button class="sua" data-sua="han" data-tk="${tk}">sửa</button></span>
+        ${coHan ? `<b>${esc(fmtNgay(hanIso))}</b><div class="ct">${con > 0 ? `còn <b>${con.toLocaleString("vi-VN")} ngày</b>` : "<b>đã hết hạn</b>"}${tuGoi ? " · theo kỳ gói" : ""}</div>`
           : `<div class="ct">Chưa nhập. Xem Console › Billing › Promotional credits</div>`}</div>
     </div>`;
+  }
+
+  _kyGoi(a) {
+    const iso = this._s(`input_datetime.claude_api_${a.slug}_plan_renew`);
+    return (iso || "") > "2020" ? kyToi(iso) : null;
+  }
+
+  _goi(a) {
+    const iso = this._kyGoi(a), con = iso ? conNgay(iso) : null;
+    return `<div class="goi"><span>Gói${a.plan ? ` <b>${esc(a.plan)}</b>` : ""}</span>
+      ${iso ? `<span>gia hạn <b>${esc(fmtNgay(iso))}</b> · còn <b>${con.toLocaleString("vi-VN")} ngày</b></span>` : "<span>chưa nhập ngày gia hạn</span>"}
+      <button class="sua" data-sua="goi" data-tk="${esc(a.slug)}">sửa</button></div>`;
   }
 
   _thang(a, cost) {
@@ -291,6 +322,7 @@ class ClaudeCodeCard extends HTMLElement {
       </div>
       ${pace === null ? "" : `<div class="nhip" style="--m:${m}">Nhịp tuần <b>${pace > 0 ? "+" : ""}${Math.round(pace)} điểm</b>
         so với tiêu đều · vạch trắng là mức nên dùng tới lúc này</div>`}
+      ${this._goi(a)}
       ${loi ? `<div class="loi">Đọc API lỗi, số có thể cũ. Nếu HA báo Re-authenticate, đăng nhập lại entry Claude Usage.</div>` : ""}
       <div class="api"><div class="tieu">API · Claude Console</div>${apiHtml}</div>
       <div class="chan">Cập nhật ${phut === null ? "?" : phut} phút trước · hạn mức 5 phút/lần, API 10 phút/lần</div>

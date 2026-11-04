@@ -32,6 +32,7 @@ API: `sensor.claude_api_<tài khoản>_cost_today`, `_cost_month`, `_cache_saved
 - **Sau mỗi kỳ cấp credit hoặc nạp tiền**: bấm *sửa* cạnh "Tín dụng còn lại" trên card, dán số Console đang hiện; card tự cộng phần đã trừ. Đối chiếu Console thỉnh thoảng; số HA trễ hơn Console vài giờ (phần chi tiêu analytics chưa cập nhật).
 - `cost_closed` `unavailable` từ lúc chốt tới 07:00 giờ VN là bình thường: ngày mốc = hôm nay UTC thì `cost_report` trả 400 (chưa có ngày đóng); số dư không phụ thuộc sensor này.
 - Hạn dùng: bấm *sửa* cạnh "Hạn dùng" (`input_datetime.claude_api_<tk>_credit_expiry`, `2000-01-01` = chưa nhập). Lấy ngày ở Console › Billing › Promotional credits. Credit tự mua hết hạn [1 năm sau ngày mua](https://support.claude.com/en/articles/8977456-how-do-i-pay-for-my-api-usage); nhiều đợt thì ghi hạn gần nhất.
+- Ngày gia hạn gói: `input_datetime.claude_api_<tk>_plan_renew`, bấm *sửa* trên card, lấy ở claude.ai › Settings › Billing. API usage không trả ngày này; `~/.claude.json` chỉ có `subscriptionCreatedAt`. Qua ngày đã nhập thì card tự dời từng tháng (đúng với gói tháng; gói năm phải nhập lại). Credit tặng chưa nhập hạn riêng thì card lấy theo kỳ gói, ghi "theo kỳ gói".
 - Giới hạn bậc tháng cũng không có API: khai `month_limit` trong `ACCOUNTS` ở `push.py`.
 
 ## Vận hành
@@ -45,10 +46,10 @@ API: `sensor.claude_api_<tài khoản>_cost_today`, `_cost_month`, `_cache_saved
 
 ## Bẫy đã gặp
 
-- Tên gói trong device ("Max") khác desktop app ("Ultra") cho cùng tài khoản ⇒ dashboard không hiện tên gói.
+- Tên gói trong device ("Max") khác desktop app ("Ultra") cho cùng tài khoản ⇒ tên gói khai tay trong `ACCOUNTS`.
 - `rest.reload` **không** nạp key mới: sensor cũ cùng unique_id vẫn chạy với key cũ, bộ mới bị bỏ qua (log *"unique ID … already exists - ignoring"*) ⇒ đổi key phải restart HA.
 - Admin API trả **403** với tổ chức cá nhân ("… Individual Org") dù key đúng loại ⇒ Console → Tổ chức → *Chuyển đổi thành nhóm*. Key `sk-ant-usr-…` gắn workspace ⇒ **401**; phải tạo key không gắn workspace (scope organization).
 - Card `conditional` coi entity **chưa tồn tại** là không khớp mọi điều kiện (kể cả `state: unavailable`) ⇒ card tự viết tự hiện lời nhắc "chưa có Admin key" khi sensor API thiếu hoặc `unavailable`.
 - `cost_report` và `usage_report` `bucket_width=1d` **không có ngày đang chạy**: trước 2026-11-04 ô "Hôm nay" thực ra là hôm qua. Chi phí hôm nay lấy từ `analytics/cost` (trễ ~1–4 giờ), token hôm nay từ `usage_report` `bucket_width=1h`.
-- `input_datetime` mới tạo tự lấy ngày hiện tại, không rỗng ⇒ card coi `2000-01-01` là chưa nhập.
+- `input_datetime` mới tạo tự lấy ngày hiện tại, không rỗng ⇒ card coi `2000-01-01` là chưa nhập. Tên gói lấy từ `plan` trong `ACCOUNTS` (device ghi "Max" dù là Ultra).
 - Giá trị `oklch()` làm tròn 3 chữ số có thể lệch nhẹ ra ngoài sRGB (palette-axi báo luật 7-gamut) ⇒ ghi token bằng hex đã kẹp.
