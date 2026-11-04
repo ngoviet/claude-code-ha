@@ -127,6 +127,7 @@ h1 .logo { width: 30px; height: 30px; border-radius: 9px; display: grid; place-i
 .goi { font-size: 0.85rem; color: var(--dim); display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
 .goi b { color: var(--fg); font-weight: 600; }
 .goi .sua { margin-left: 0; }
+.uoc { grid-column: 1 / -1; font-size: 0.78rem; color: var(--dim); }
 .tang { font-size: 0.72rem; font-weight: 600; color: var(--dim); margin-left: 4px; }
 .goiy { grid-column: 1 / -1; font-size: 0.82rem; color: var(--dim); }
 .goiy code { color: var(--fg); background: var(--track); padding: 1px 5px; border-radius: 5px; }
@@ -180,7 +181,7 @@ class ClaudeCodeCard extends HTMLElement {
       if (v === null) return;
       const so = Number(v.trim().replace(",", "."));
       if (!Number.isFinite(so) || so < 0) { window.alert("Số không hợp lệ"); return; }
-      const value = Math.round((so + (this._n(`sensor.claude_api_${tk}_cost_since_base`) ?? 0)) * 100) / 100;
+      const value = Math.round((so + (this._n(`sensor.claude_api_${tk}_cost_since_base`) ?? 0) + (this._n(`sensor.claude_api_${tk}_cost_pending`) ?? 0)) * 100) / 100;
       this._hass.callService("input_number", "set_value", { value }, { entity_id: `input_number.claude_api_${tk}_credit_base` });
       return;
     }
@@ -295,18 +296,22 @@ class ClaudeCodeCard extends HTMLElement {
       .filter((e) => e.startsWith(`${s}_weekly_`) && e.endsWith("_limit_usage") && !e.includes("_all_models_"))
       .map((e) => [e.slice(`${s}_weekly_`.length, -"_limit_usage".length), this._n(e), this._hass.states[e].attributes?.resets_at])
       .filter(([, v]) => v !== null);
-    const cost = this._n(`${api}_cost_month`);
+    // Analytics trễ vài giờ: cộng phần ước tính từ token cho khớp Console hơn
+    const choGhi = this._n(`${api}_cost_pending`) ?? 0;
+    const thangGoc = this._n(`${api}_cost_month`), homGoc = this._n(`${api}_cost_today`);
+    const cost = thangGoc === null ? null : thangGoc + choGhi;
     const tk7 = this._n(`${api}_tokens_7d`), tkTruoc = this._n(`${api}_tokens_prev_7d`);
     const tang = tk7 !== null && tkTruoc ? Math.round((tk7 / tkTruoc - 1) * 100) : null;
     const apiHtml = cost === null
       ? `<div class="goiy">Chưa có số API. Dán Admin key vào <code>/config/secrets.yaml</code> dòng <code>anthropic_admin_key_${esc(a.slug)}</code> rồi khởi động lại HA.</div>`
       : `${this._tinDung(a, cost)}${this._thang(a, cost)}
-         <div class="o"><span>Chi hôm nay</span><b>${fmtUsd(this._n(`${api}_cost_today`))}<small>USD</small></b></div>
+         <div class="o"><span>Chi hôm nay</span><b>${fmtUsd(homGoc === null ? null : homGoc + choGhi)}<small>USD</small></b></div>
          <div class="o"><span>Chi tháng này</span><b>${fmtUsd(cost)}<small>USD</small></b></div>
          <div class="o"><span>Token hôm nay</span><b>${fmtTok(this._n(`${api}_tokens_today`))}</b></div>
          <div class="o"><span>Token 7 ngày</span><b>${fmtTok(tk7)}${tang === null ? "" : `<span class="tang">${tang > 0 ? "+" : ""}${tang.toLocaleString("vi-VN")}%</span>`}</b></div>
          <div class="o"><span>Trúng cache 7 ngày</span><b>${fmtPct(this._n(`${api}_cache_hit_7d`))}<small>%</small></b></div>
-         <div class="o"><span>Cache tiết kiệm tháng</span><b>~${fmtUsd(this._n(`${api}_cache_saved_month`))}<small>USD</small></b></div>`;
+         <div class="o"><span>Cache tiết kiệm tháng</span><b>~${fmtUsd(this._n(`${api}_cache_saved_month`))}<small>USD</small></b></div>
+         ${choGhi > 0 ? `<div class="ct uoc">Gồm ~${fmtUsd(choGhi)} USD ước tính từ token, API chi phí chưa ghi</div>` : ""}`;
     const doc = this._hass.states[`${s}_week_usage`];
     const phut = doc ? Math.floor((Date.now() - new Date(doc.last_reported || doc.last_updated)) / 60000) : null;
     return `<section class="the" style="--c:${ACC[i % 2]}">

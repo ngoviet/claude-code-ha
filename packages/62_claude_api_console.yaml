@@ -5,6 +5,8 @@
 #   • GET /v1/organizations/analytics/cost  (beta `analytics-usage-cost-2026-08-24`) → USD, CÓ ngày đang chạy, trễ ~1–4 giờ
 #   • GET /v1/organizations/cost_report     → USD, CHỈ ngày UTC đã đóng (không có bucket hôm nay) ⇒ dùng để chốt số dư
 #   • GET /v1/organizations/usage_report/messages → token: 1h có hôm nay; 1d chỉ ngày đã đóng
+#   • Phần analytics chưa kịp ghi: `cost_pending` = token + web search từ usage_report 1h (mới hơn analytics vài giờ) × bảng giá,
+#     chỉ tính các giờ sau `cost_data_until`; là ước tính, analytics ghi tới giờ nào thì phần đó tự rời khỏi cost_pending.
 #   `amount` = **cent**, chuỗi thập phân. Docs: https://platform.claude.com/docs/en/manage-claude/usage-cost-analytics-api
 #
 # ⚠️ Secret trong /config/secrets.yaml: `anthropic_admin_key_vonupt`, `anthropic_admin_key_vokupt`
@@ -85,7 +87,8 @@ template:
              and has_value('sensor.claude_api_vonupt_cost_since_base') }}
         state: >-
           {{ (states('input_number.claude_api_vonupt_credit_base') | float(0)
-              - states('sensor.claude_api_vonupt_cost_since_base') | float(0)) | round(2) }}
+              - states('sensor.claude_api_vonupt_cost_since_base') | float(0)
+              - states('sensor.claude_api_vonupt_cost_pending') | float(0)) | round(2) }}
       - name: Claude API Vokupt credit balance
         unique_id: claude_api_vokupt_credit_balance
         unit_of_measurement: USD
@@ -97,7 +100,8 @@ template:
              and has_value('sensor.claude_api_vokupt_cost_since_base') }}
         state: >-
           {{ (states('input_number.claude_api_vokupt_credit_base') | float(0)
-              - states('sensor.claude_api_vokupt_cost_since_base') | float(0)) | round(2) }}
+              - states('sensor.claude_api_vokupt_cost_since_base') | float(0)
+              - states('sensor.claude_api_vokupt_cost_pending') | float(0)) | round(2) }}
 
 automation:
   - id: claude_api_chot_chi_phi_vao_so_du
@@ -289,14 +293,52 @@ rest:
 
   # Hôm nay theo giờ (báo cáo 1d chưa có ngày đang chạy)
   - resource_template: >-
+      https://api.anthropic.com/v1/organizations/analytics/cost?starting_at={{
+      (utcnow() - timedelta(days=1)).strftime('%Y-%m-%dT00:00:00Z') }}&ending_at={{
+      (utcnow() + timedelta(days=1)).strftime('%Y-%m-%dT00:00:00Z') }}&time_bucket_width=1h&order_by=time&order=desc&limit=1
+    headers:
+      x-api-key: !secret anthropic_admin_key_vonupt
+      anthropic-version: "2023-06-01"
+      anthropic-beta: analytics-usage-cost-2026-08-24
+    scan_interval: 600
+    timeout: 30
+    sensor:
+      - name: Claude API Vonupt cost data until
+        unique_id: claude_api_vonupt_cost_data_until
+        icon: mdi:clock-check-outline
+        availability: "{{ value_json is defined and value_json.data is defined }}"
+        value_template: "{{ value_json.data[0].ending_at if value_json.data else '' }}"
+
+  - resource_template: >-
       https://api.anthropic.com/v1/organizations/usage_report/messages?starting_at={{
-      utcnow().strftime('%Y-%m-%dT00:00:00Z') }}&bucket_width=1h&limit=24
+      (utcnow() - timedelta(days=1)).strftime('%Y-%m-%dT00:00:00Z') }}&bucket_width=1h&group_by[]=model&limit=48
     headers:
       x-api-key: !secret anthropic_admin_key_vonupt
       anthropic-version: "2023-06-01"
     scan_interval: 600
     timeout: 30
     sensor:
+      - name: Claude API Vonupt cost pending
+        unique_id: claude_api_vonupt_cost_pending
+        unit_of_measurement: USD
+        device_class: monetary
+        state_class: total
+        icon: mdi:cash-clock
+        availability: "{{ value_json is defined and value_json.data is defined }}"
+        value_template: >-
+          {% set moc = states('sensor.claude_api_vonupt_cost_data_until') %}
+          {% set moc = moc if moc is match('20') else '' %}
+          {% set ns = namespace(c=0) %}
+          {% for b in value_json.data if b.starting_at >= moc %}{% for r in b.results %}
+          {% set m = r.model or '' %}
+          {% set g = [10, 50, 0.25] if 'fable' in m else [2, 10, 0.1] if 'sonnet' in m else [0.1, 0.5, 0.01] if 'haiku' in m else [4, 20, 0.2] %}
+          {% set cc = r.cache_creation or {} %}
+          {% set ns.c = ns.c + ((r.uncached_input_tokens or 0) * g[0] + (r.output_tokens or 0) * g[1]
+             + (r.cache_read_input_tokens or 0) * g[2] + (cc.ephemeral_5m_input_tokens or 0) * g[0] * 1.25
+             + (cc.ephemeral_1h_input_tokens or 0) * g[0] * 2) / 1000000
+             + ((r.server_tool_use or {}).web_search_requests or 0) * 0.01 %}
+          {% endfor %}{% endfor %}
+          {{ ns.c | round(2) }}
       - name: Claude API Vonupt tokens today
         unique_id: claude_api_vonupt_tokens_today
         unit_of_measurement: token
@@ -305,7 +347,7 @@ rest:
         availability: "{{ value_json is defined and value_json.data is defined }}"
         value_template: >-
           {% set ns = namespace(t=0) %}
-          {% for b in value_json.data %}{% for r in b.results %}
+          {% for b in value_json.data if b.starting_at >= utcnow().strftime('%Y-%m-%d') %}{% for r in b.results %}
           {% set cc = r.cache_creation or {} %}
           {% set ns.t = ns.t + (r.uncached_input_tokens or 0) + (r.cache_read_input_tokens or 0)
              + (cc.ephemeral_5m_input_tokens or 0) + (cc.ephemeral_1h_input_tokens or 0)
@@ -462,14 +504,52 @@ rest:
 
   # Hôm nay theo giờ (báo cáo 1d chưa có ngày đang chạy)
   - resource_template: >-
+      https://api.anthropic.com/v1/organizations/analytics/cost?starting_at={{
+      (utcnow() - timedelta(days=1)).strftime('%Y-%m-%dT00:00:00Z') }}&ending_at={{
+      (utcnow() + timedelta(days=1)).strftime('%Y-%m-%dT00:00:00Z') }}&time_bucket_width=1h&order_by=time&order=desc&limit=1
+    headers:
+      x-api-key: !secret anthropic_admin_key_vokupt
+      anthropic-version: "2023-06-01"
+      anthropic-beta: analytics-usage-cost-2026-08-24
+    scan_interval: 600
+    timeout: 30
+    sensor:
+      - name: Claude API Vokupt cost data until
+        unique_id: claude_api_vokupt_cost_data_until
+        icon: mdi:clock-check-outline
+        availability: "{{ value_json is defined and value_json.data is defined }}"
+        value_template: "{{ value_json.data[0].ending_at if value_json.data else '' }}"
+
+  - resource_template: >-
       https://api.anthropic.com/v1/organizations/usage_report/messages?starting_at={{
-      utcnow().strftime('%Y-%m-%dT00:00:00Z') }}&bucket_width=1h&limit=24
+      (utcnow() - timedelta(days=1)).strftime('%Y-%m-%dT00:00:00Z') }}&bucket_width=1h&group_by[]=model&limit=48
     headers:
       x-api-key: !secret anthropic_admin_key_vokupt
       anthropic-version: "2023-06-01"
     scan_interval: 600
     timeout: 30
     sensor:
+      - name: Claude API Vokupt cost pending
+        unique_id: claude_api_vokupt_cost_pending
+        unit_of_measurement: USD
+        device_class: monetary
+        state_class: total
+        icon: mdi:cash-clock
+        availability: "{{ value_json is defined and value_json.data is defined }}"
+        value_template: >-
+          {% set moc = states('sensor.claude_api_vokupt_cost_data_until') %}
+          {% set moc = moc if moc is match('20') else '' %}
+          {% set ns = namespace(c=0) %}
+          {% for b in value_json.data if b.starting_at >= moc %}{% for r in b.results %}
+          {% set m = r.model or '' %}
+          {% set g = [10, 50, 0.25] if 'fable' in m else [2, 10, 0.1] if 'sonnet' in m else [0.1, 0.5, 0.01] if 'haiku' in m else [4, 20, 0.2] %}
+          {% set cc = r.cache_creation or {} %}
+          {% set ns.c = ns.c + ((r.uncached_input_tokens or 0) * g[0] + (r.output_tokens or 0) * g[1]
+             + (r.cache_read_input_tokens or 0) * g[2] + (cc.ephemeral_5m_input_tokens or 0) * g[0] * 1.25
+             + (cc.ephemeral_1h_input_tokens or 0) * g[0] * 2) / 1000000
+             + ((r.server_tool_use or {}).web_search_requests or 0) * 0.01 %}
+          {% endfor %}{% endfor %}
+          {{ ns.c | round(2) }}
       - name: Claude API Vokupt tokens today
         unique_id: claude_api_vokupt_tokens_today
         unit_of_measurement: token
@@ -478,7 +558,7 @@ rest:
         availability: "{{ value_json is defined and value_json.data is defined }}"
         value_template: >-
           {% set ns = namespace(t=0) %}
-          {% for b in value_json.data %}{% for r in b.results %}
+          {% for b in value_json.data if b.starting_at >= utcnow().strftime('%Y-%m-%d') %}{% for r in b.results %}
           {% set cc = r.cache_creation or {} %}
           {% set ns.t = ns.t + (r.uncached_input_tokens or 0) + (r.cache_read_input_tokens or 0)
              + (cc.ephemeral_5m_input_tokens or 0) + (cc.ephemeral_1h_input_tokens or 0)
