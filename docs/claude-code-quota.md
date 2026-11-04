@@ -53,4 +53,6 @@ API: `sensor.claude_api_<tài khoản>_cost_today`, `_cost_month`, `_cache_saved
 - Card `conditional` coi entity **chưa tồn tại** là không khớp mọi điều kiện (kể cả `state: unavailable`) ⇒ card tự viết tự hiện lời nhắc "chưa có Admin key" khi sensor API thiếu hoặc `unavailable`.
 - `cost_report` và `usage_report` `bucket_width=1d` **không có ngày đang chạy**: trước 2026-11-04 ô "Hôm nay" thực ra là hôm qua. Chi phí hôm nay lấy từ `analytics/cost` (trễ ~1–4 giờ), token hôm nay từ `usage_report` `bucket_width=1h`.
 - `input_datetime` mới tạo tự lấy ngày hiện tại, không rỗng ⇒ card coi `2000-01-01` là chưa nhập. Tên gói lấy từ `plan` trong `ACCOUNTS` (device ghi "Max" dù là Ultra).
+- **Không gọi thêm `api.anthropic.com/api/oauth/*` bằng token của entry Claude Usage.** 2026-11-04 thử 8 lượt lúc 23:03 thì lượt đọc định kỳ 23:06 của cả 2 tài khoản bị 429, tới 00:16 hôm sau mới hết (~70 phút, có giãn chu kỳ sang 30 phút). Integration không lùi khi 429; bị chặn thì tăng `update_interval` trong tuỳ chọn entry, hết lỗi trả về 300, đừng đăng nhập lại.
+- `prepaid/credits` (số dư) qua OAuth đòi thêm scope `user:inference` ⇒ token HA bị 403, không nên cấp vì token đó chạy được model. Cookie Console đọc được nhưng là phiên toàn quyền.
 - Giá trị `oklch()` làm tròn 3 chữ số có thể lệch nhẹ ra ngoài sRGB (palette-axi báo luật 7-gamut) ⇒ ghi token bằng hex đã kẹp.
