@@ -16,8 +16,8 @@
 # ⚠️ **Không API nào trả số dư tín dụng hay hạn dùng** (đã dò 2026-11-04; spend_limits chỉ cho Enterprise). Vì vậy:
 #    số dư = `credit_base` (số dư lúc 00:00 UTC ngày `credit_base_date`) − chi phí từ ngày đó (analytics).
 #    Automation dưới đây chốt ngày đã đóng vào `credit_base` mỗi ngày, nên cửa sổ không vượt 31 ngày của API.
-#    Sau mỗi lần **nạp tiền** phải nhập lại số dư (nút sửa trên card).
-#    Hạn dùng `credit_expiry` nhập tay: credit mua hết hạn 1 năm sau ngày mua; nhiều lần nạp thì ghi hạn gần nhất.
+#    Sau mỗi lần **gói cấp credit mới** (Max 100, Ultra 200 USD/kỳ, hết kỳ mất phần thừa) hoặc nạp tiền: nhập lại số dư + hạn (nút sửa trên card).
+#    Hạn dùng `credit_expiry` nhập tay từ Console › Billing › Promotional credits; credit tự mua hết hạn 1 năm sau ngày mua.
 # Hạn mức gói thuê bao (5 giờ / tuần) KHÔNG nằm ở đây: integration HACS `hass_claude_usage`.
 #
 # Tổng token = input chưa cache + ghi cache (5 phút + 1 giờ) + đọc cache + output.

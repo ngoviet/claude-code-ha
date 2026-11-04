@@ -170,7 +170,7 @@ class ClaudeCodeCard extends HTMLElement {
       this._hass.callService("input_number", "set_value", { value }, { entity_id: `input_number.claude_api_${tk}_credit_base` });
       return;
     }
-    const v = window.prompt("Ngày hết hạn tín dụng (dd/mm/yyyy, nhiều đợt nạp thì ghi hạn gần nhất):");
+    const v = window.prompt("Ngày hết hạn tín dụng (dd/mm/yyyy, xem Console › Billing, nhiều đợt thì ghi hạn gần nhất):");
     if (v === null) return;
     const m = v.trim().match(/^(\d{1,2})[/.-](\d{1,2})[/.-](\d{4})$/);
     if (!m) { window.alert("Ngày không hợp lệ, ví dụ 15/06/2027"); return; }
@@ -187,14 +187,18 @@ class ClaudeCodeCard extends HTMLElement {
     const con = coHan ? Math.ceil((new Date(`${hanIso}T23:59:59`) - Date.now()) / 864e5) : null;
     const nhipNgay = cost ? cost / Math.max(1, new Date().getUTCDate()) : 0;
     const ngayHet = du !== null && nhipNgay > 0 ? Math.floor(du / nhipNgay) : null;
+    // Credit gói không chuyển kỳ ⇒ so nhịp tiêu với hạn: phần tiêu không kịp sẽ mất
+    const mat = du !== null && con !== null && con > 0 ? du - nhipNgay * con : null;
     const mHan = con === null ? "var(--dim)" : con <= 30 ? "var(--bad)" : con <= 90 ? "var(--warn)" : "var(--fg)";
     return `<div class="vi">
       <div class="o"><span>Tín dụng còn lại <button class="sua" data-sua="so_du" data-tk="${tk}">sửa</button></span>
         ${du === null ? `<div class="ct">Chưa nhập, bấm sửa rồi dán số dư trên Console</div>` : `<b>${fmtUsd(du)}<small>USD</small></b>
-        <div class="ct">${ngayHet === null ? "chưa có chi tiêu tháng này" : `đủ dùng <b>~${ngayHet.toLocaleString("vi-VN")} ngày</b> theo nhịp ${fmtUsd(nhipNgay)} USD/ngày`}</div>`}</div>
+        <div class="ct">${con !== null && con <= 0 ? "<b>Đã qua hạn, nhập lại số dư và hạn mới</b>"
+          : mat !== null && mat > 0 ? `theo nhịp ${fmtUsd(nhipNgay)} USD/ngày, <b>~${fmtUsd(mat)} USD</b> sẽ mất khi hết hạn`
+          : ngayHet === null ? "chưa có chi tiêu tháng này" : `đủ dùng <b>~${ngayHet.toLocaleString("vi-VN")} ngày</b> theo nhịp ${fmtUsd(nhipNgay)} USD/ngày`}</div>`}</div>
       <div class="o han" style="--m:${mHan}"><span>Hạn dùng <button class="sua" data-sua="han" data-tk="${tk}">sửa</button></span>
         ${coHan ? `<b>${esc(fmtNgay(hanIso))}</b><div class="ct">${con > 0 ? `còn <b>${con.toLocaleString("vi-VN")} ngày</b>` : "<b>đã hết hạn</b>"}</div>`
-          : `<div class="ct">Chưa nhập. Credit hết hạn 1 năm sau ngày mua</div>`}</div>
+          : `<div class="ct">Chưa nhập. Xem Console › Billing › Promotional credits</div>`}</div>
     </div>`;
   }
 

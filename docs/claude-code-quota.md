@@ -28,9 +28,10 @@ API: `sensor.claude_api_<tài khoản>_cost_today`, `_cost_month`, `_cache_saved
 
 - Số dư = `input_number.claude_api_<tk>_credit_base` (số dư lúc 00:00 UTC ngày `input_datetime.claude_api_<tk>_credit_base_date`) − `cost_since_base` (analytics).
 - Automation `Claude API — chốt chi phí ngày đã đóng vào số dư mốc` (12:05 hằng ngày) chuyển các ngày đã đóng từ `cost_closed` vào số mốc và dời ngày mốc, vì analytics chỉ tính tối đa 31 ngày một lần.
-- **Sau mỗi lần nạp tiền**: bấm *sửa* cạnh "Tín dụng còn lại" trên card, dán số Console đang hiện; card tự cộng phần đã trừ. Đối chiếu Console thỉnh thoảng; số HA trễ hơn Console vài giờ (phần chi tiêu analytics chưa cập nhật).
+- Credit gói ([Max 100, Ultra 200 USD/kỳ](https://support.claude.com/en/articles/17154008-monthly-api-credits-for-max-ultra-and-team-plans)) **hết kỳ thanh toán là mất phần thừa, không chuyển kỳ**, chỉ dùng cho API, Agent SDK, Managed Agents, Playground (không cho Claude Code); được tiêu trước credit tự mua. Số dư tính ra chỉ đúng trong kỳ: qua hạn card báo nhập lại.
+- **Sau mỗi kỳ cấp credit hoặc nạp tiền**: bấm *sửa* cạnh "Tín dụng còn lại" trên card, dán số Console đang hiện; card tự cộng phần đã trừ. Đối chiếu Console thỉnh thoảng; số HA trễ hơn Console vài giờ (phần chi tiêu analytics chưa cập nhật).
 - `cost_closed` `unavailable` từ lúc chốt tới 07:00 giờ VN là bình thường: ngày mốc = hôm nay UTC thì `cost_report` trả 400 (chưa có ngày đóng); số dư không phụ thuộc sensor này.
-- Hạn dùng: bấm *sửa* cạnh "Hạn dùng" (`input_datetime.claude_api_<tk>_credit_expiry`, `2000-01-01` = chưa nhập). Credit mua hết hạn [1 năm sau ngày mua](https://support.claude.com/en/articles/8977456-how-do-i-pay-for-my-api-usage); nhiều đợt nạp thì ghi hạn gần nhất.
+- Hạn dùng: bấm *sửa* cạnh "Hạn dùng" (`input_datetime.claude_api_<tk>_credit_expiry`, `2000-01-01` = chưa nhập). Lấy ngày ở Console › Billing › Promotional credits. Credit tự mua hết hạn [1 năm sau ngày mua](https://support.claude.com/en/articles/8977456-how-do-i-pay-for-my-api-usage); nhiều đợt thì ghi hạn gần nhất.
 - Giới hạn bậc tháng cũng không có API: khai `month_limit` trong `ACCOUNTS` ở `push.py`.
 
 ## Vận hành
