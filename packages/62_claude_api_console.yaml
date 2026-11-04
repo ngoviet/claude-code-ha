@@ -1,10 +1,11 @@
-# Lượng dùng + chi phí **Claude API** (Claude Console, platform.claude.com/dashboard) — 2026-10-31.
+# Lượng dùng, chi phí + số dư tín dụng **Claude API** (Claude Console, platform.claude.com/dashboard) — 2026-10-31, mở rộng 2026-11-04.
 # Mỗi tài khoản Claude có Console (Organization) riêng ⇒ mỗi tài khoản 1 Admin key, 1 bộ sensor.
 #
-# Nguồn: Admin API chính thức (Usage & Cost, bản "legacy" vẫn được hỗ trợ):
-#   • GET /v1/organizations/cost_report           → USD theo ngày (`amount` = **cent**, chuỗi thập phân)
-#   • GET /v1/organizations/usage_report/messages → token theo ngày, nhóm theo model
-# Docs: https://platform.claude.com/docs/en/build-with-claude/usage-cost-api
+# Nguồn: Admin API chính thức, chọn theo độ tươi của dữ liệu:
+#   • GET /v1/organizations/analytics/cost  (beta `analytics-usage-cost-2026-08-24`) → USD, CÓ ngày đang chạy, trễ ~1–4 giờ
+#   • GET /v1/organizations/cost_report     → USD, CHỈ ngày UTC đã đóng (không có bucket hôm nay) ⇒ dùng để chốt số dư
+#   • GET /v1/organizations/usage_report/messages → token: 1h có hôm nay; 1d chỉ ngày đã đóng
+#   `amount` = **cent**, chuỗi thập phân. Docs: https://platform.claude.com/docs/en/manage-claude/usage-cost-analytics-api
 #
 # ⚠️ Secret trong /config/secrets.yaml: `anthropic_admin_key_vonupt`, `anthropic_admin_key_vokupt`
 #    (sk-ant-admin01-…; chỉ tạo được khi Console là Organization). Dán key xong:
@@ -12,19 +13,131 @@
 #    bộ mới bị bỏ qua ("Platform rest does not generate unique IDs … already exists - ignoring") — gặp 2026-10-31.
 #    Key chưa dán / sai ⇒ API trả lỗi, sensor `unavailable` (không hiện 0 giả).
 # ⚠️ Ngày tính theo **UTC** (= 07:00 giờ VN), giống trang dashboard Console.
-# ⚠️ Số liệu trễ ~5 phút; docs cho phép poll 1 lần/phút — ở đây 10 phút là đủ.
+# ⚠️ **Không API nào trả số dư tín dụng hay hạn dùng** (đã dò 2026-11-04; spend_limits chỉ cho Enterprise). Vì vậy:
+#    số dư = `credit_base` (số dư lúc 00:00 UTC ngày `credit_base_date`) − chi phí từ ngày đó (analytics).
+#    Automation dưới đây chốt ngày đã đóng vào `credit_base` mỗi ngày, nên cửa sổ không vượt 31 ngày của API.
+#    Sau mỗi lần **nạp tiền** phải nhập lại số dư (nút sửa trên card).
+#    Hạn dùng `credit_expiry` nhập tay: credit mua hết hạn 1 năm sau ngày mua; nhiều lần nạp thì ghi hạn gần nhất.
 # Hạn mức gói thuê bao (5 giờ / tuần) KHÔNG nằm ở đây: integration HACS `hass_claude_usage`.
 #
 # Tổng token = input chưa cache + ghi cache (5 phút + 1 giờ) + đọc cache + output.
+# Tiết kiệm nhờ cache ≈ 9 × tiền đọc cache (đọc cache = 10 % giá input) — ước tính.
 # Hai tài khoản giống hệt nhau trừ secret + tên ⇒ sửa một khối thì sửa cả khối kia.
+input_number:
+  claude_api_vonupt_credit_base:
+    name: Claude API Vonupt số dư mốc
+    min: 0
+    max: 100000
+    step: 0.01
+    mode: box
+    unit_of_measurement: USD
+    icon: mdi:wallet-outline
+  claude_api_vokupt_credit_base:
+    name: Claude API Vokupt số dư mốc
+    min: 0
+    max: 100000
+    step: 0.01
+    mode: box
+    unit_of_measurement: USD
+    icon: mdi:wallet-outline
+
+input_datetime:
+  claude_api_vonupt_credit_base_date:
+    name: Claude API Vonupt ngày mốc số dư
+    has_date: true
+    has_time: false
+  claude_api_vokupt_credit_base_date:
+    name: Claude API Vokupt ngày mốc số dư
+    has_date: true
+    has_time: false
+  claude_api_vonupt_credit_expiry:
+    name: Claude API Vonupt hạn tín dụng
+    has_date: true
+    has_time: false
+    icon: mdi:calendar-clock
+  claude_api_vokupt_credit_expiry:
+    name: Claude API Vokupt hạn tín dụng
+    has_date: true
+    has_time: false
+    icon: mdi:calendar-clock
+
+template:
+  - sensor:
+      - name: Claude API Vonupt credit balance
+        unique_id: claude_api_vonupt_credit_balance
+        unit_of_measurement: USD
+        device_class: monetary
+        state_class: total
+        icon: mdi:wallet
+        availability: >-
+          {{ states('input_number.claude_api_vonupt_credit_base') | float(0) > 0
+             and has_value('sensor.claude_api_vonupt_cost_since_base') }}
+        state: >-
+          {{ (states('input_number.claude_api_vonupt_credit_base') | float(0)
+              - states('sensor.claude_api_vonupt_cost_since_base') | float(0)) | round(2) }}
+      - name: Claude API Vokupt credit balance
+        unique_id: claude_api_vokupt_credit_balance
+        unit_of_measurement: USD
+        device_class: monetary
+        state_class: total
+        icon: mdi:wallet
+        availability: >-
+          {{ states('input_number.claude_api_vokupt_credit_base') | float(0) > 0
+             and has_value('sensor.claude_api_vokupt_cost_since_base') }}
+        state: >-
+          {{ (states('input_number.claude_api_vokupt_credit_base') | float(0)
+              - states('sensor.claude_api_vokupt_cost_since_base') | float(0)) | round(2) }}
+
+automation:
+  - id: claude_api_chot_chi_phi_vao_so_du
+    alias: Claude API — chốt chi phí ngày đã đóng vào số dư mốc
+    description: >-
+      Giữ cửa sổ tính số dư ngắn (API analytics tối đa 31 ngày). Trừ tổng các ngày đã đóng khỏi số dư mốc rồi
+      dời ngày mốc; sensor closed chưa kịp đọc lại thì closed_until không còn lớn hơn ngày mốc nên không trừ hai lần.
+    triggers:
+      - trigger: time
+        at: "12:05:00"
+    actions:
+      - repeat:
+          for_each:
+            - vonupt
+            - vokupt
+          sequence:
+            - variables:
+                closed: "{{ states('sensor.claude_api_' ~ repeat.item ~ '_cost_closed') | float(-1) }}"
+                closed_until: "{{ states('sensor.claude_api_' ~ repeat.item ~ '_cost_closed_until') }}"
+                base: "{{ states('input_number.claude_api_' ~ repeat.item ~ '_credit_base') | float(0) }}"
+                base_date: "{{ states('input_datetime.claude_api_' ~ repeat.item ~ '_credit_base_date') }}"
+            - if:
+                - condition: template
+                  value_template: "{{ closed >= 0 and closed_until is match('20') and closed_until > base_date }}"
+              then:
+                - action: input_number.set_value
+                  target:
+                    entity_id: "input_number.claude_api_{{ repeat.item }}_credit_base"
+                  data:
+                    value: "{{ [(base - closed) | round(2), 0] | max }}"
+                - action: input_datetime.set_datetime
+                  target:
+                    entity_id: "input_datetime.claude_api_{{ repeat.item }}_credit_base_date"
+                  data:
+                    date: "{{ closed_until }}"
+                - action: homeassistant.update_entity
+                  target:
+                    entity_id:
+                      - "sensor.claude_api_{{ repeat.item }}_cost_since_base"
+                      - "sensor.claude_api_{{ repeat.item }}_cost_closed"
+
 rest:
   # ───────────────────────────── Vonupt
+  # Tháng này, gồm cả hôm nay (analytics)
   - resource_template: >-
-      https://api.anthropic.com/v1/organizations/cost_report?starting_at={{
-      utcnow().strftime('%Y-%m-01T00:00:00Z') }}&limit=31
+      https://api.anthropic.com/v1/organizations/analytics/cost?starting_at={{
+      utcnow().strftime('%Y-%m-01T00:00:00Z') }}&group_by[]=token_type&group_by[]=cost_type&limit=100
     headers:
       x-api-key: !secret anthropic_admin_key_vonupt
       anthropic-version: "2023-06-01"
+      anthropic-beta: analytics-usage-cost-2026-08-24
     scan_interval: 600
     timeout: 30
     sensor:
@@ -36,11 +149,38 @@ rest:
         icon: mdi:cash-multiple
         availability: "{{ value_json is defined and value_json.data is defined }}"
         value_template: >-
-          {% set ns = namespace(c=0) %}
-          {% for b in value_json.data %}{% for r in b.results %}
-          {% set ns.c = ns.c + (r.amount | float(0)) %}
-          {% endfor %}{% endfor %}
-          {{ (ns.c / 100) | round(2) }}
+          {{ ((value_json.data | map(attribute='cost.amount') | map('float', 0) | sum) / 100) | round(2) }}
+      - name: Claude API Vonupt cache saved month
+        unique_id: claude_api_vonupt_cache_saved_month
+        unit_of_measurement: USD
+        device_class: monetary
+        state_class: total
+        icon: mdi:piggy-bank-outline
+        availability: "{{ value_json is defined and value_json.data is defined }}"
+        value_template: >-
+          {{ ((value_json.data | selectattr('group.token_type', 'eq', 'cache_read_input_tokens')
+              | map(attribute='cost.amount') | map('float', 0) | sum) * 9 / 100) | round(2) }}
+
+  # Từ ngày mốc số dư, từng ngày (analytics): tổng để tính số dư + dòng hôm nay
+  - resource_template: >-
+      https://api.anthropic.com/v1/organizations/analytics/cost?starting_at={% set d = states('input_datetime.claude_api_vonupt_credit_base_date') %}{{ d if d is match('20') else utcnow().strftime('%Y-%m-%d') }}T00:00:00Z&ending_at={{
+      (utcnow() + timedelta(days=1)).strftime('%Y-%m-%dT00:00:00Z') }}&time_bucket_width=1d&order_by=time&order=asc&limit=100
+    headers:
+      x-api-key: !secret anthropic_admin_key_vonupt
+      anthropic-version: "2023-06-01"
+      anthropic-beta: analytics-usage-cost-2026-08-24
+    scan_interval: 600
+    timeout: 30
+    sensor:
+      - name: Claude API Vonupt cost since base
+        unique_id: claude_api_vonupt_cost_since_base
+        unit_of_measurement: USD
+        device_class: monetary
+        state_class: total
+        icon: mdi:cash-minus
+        availability: "{{ value_json is defined and value_json.data is defined }}"
+        value_template: >-
+          {{ ((value_json.data | map(attribute='cost.amount') | map('float', 0) | sum) / 100) | round(2) }}
       - name: Claude API Vonupt cost today
         unique_id: claude_api_vonupt_cost_today
         unit_of_measurement: USD
@@ -49,12 +189,97 @@ rest:
         icon: mdi:cash
         availability: "{{ value_json is defined and value_json.data is defined }}"
         value_template: >-
-          {% set b = value_json.data | last %}
-          {{ ((b.results | map(attribute='amount') | map('float', 0) | sum) / 100) | round(2) }}
+          {% set h = utcnow().strftime('%Y-%m-%d') %}
+          {{ ((value_json.data | selectattr('starting_at', 'match', h)
+              | map(attribute='cost.amount') | map('float', 0) | sum) / 100) | round(2) }}
 
+  # Ngày đã đóng kể từ ngày mốc (cost_report): số liệu chốt cho automation
+  - resource_template: >-
+      https://api.anthropic.com/v1/organizations/cost_report?starting_at={% set d = states('input_datetime.claude_api_vonupt_credit_base_date') %}{{ d if d is match('20') else utcnow().strftime('%Y-%m-%d') }}T00:00:00Z&limit=31
+    headers:
+      x-api-key: !secret anthropic_admin_key_vonupt
+      anthropic-version: "2023-06-01"
+    scan_interval: 600
+    timeout: 30
+    sensor:
+      - name: Claude API Vonupt cost closed
+        unique_id: claude_api_vonupt_cost_closed
+        unit_of_measurement: USD
+        icon: mdi:cash-lock
+        availability: "{{ value_json is defined and value_json.data is defined }}"
+        value_template: >-
+          {% set ns = namespace(c=0) %}
+          {% for b in value_json.data %}{% for r in b.results %}
+          {% set ns.c = ns.c + (r.amount | float(0)) %}
+          {% endfor %}{% endfor %}
+          {{ (ns.c / 100) | round(4) }}
+      - name: Claude API Vonupt cost closed until
+        unique_id: claude_api_vonupt_cost_closed_until
+        icon: mdi:calendar-check
+        availability: "{{ value_json is defined and value_json.data is defined }}"
+        value_template: >-
+          {{ (value_json.data | last).ending_at[:10] if value_json.data else 'none' }}
+
+  # 14 ngày đã đóng: 7 ngày qua, 7 ngày trước đó (so sánh như Console), tỷ lệ trúng cache
   - resource_template: >-
       https://api.anthropic.com/v1/organizations/usage_report/messages?starting_at={{
-      (utcnow() - timedelta(days=6)).strftime('%Y-%m-%dT00:00:00Z') }}&bucket_width=1d&limit=7&group_by[]=model
+      (utcnow() - timedelta(days=14)).strftime('%Y-%m-%dT00:00:00Z') }}&bucket_width=1d&limit=14&group_by[]=model
+    headers:
+      x-api-key: !secret anthropic_admin_key_vonupt
+      anthropic-version: "2023-06-01"
+    scan_interval: 600
+    timeout: 30
+    sensor:
+      - name: Claude API Vonupt tokens 7d
+        unique_id: claude_api_vonupt_tokens_7d
+        unit_of_measurement: token
+        state_class: total
+        icon: mdi:counter
+        availability: "{{ value_json is defined and value_json.data is defined }}"
+        value_template: >-
+          {% set ns = namespace(t=0) %}
+          {% for b in value_json.data[-7:] %}{% for r in b.results %}
+          {% set cc = r.cache_creation or {} %}
+          {% set ns.t = ns.t + (r.uncached_input_tokens or 0) + (r.cache_read_input_tokens or 0)
+             + (cc.ephemeral_5m_input_tokens or 0) + (cc.ephemeral_1h_input_tokens or 0)
+             + (r.output_tokens or 0) %}
+          {% endfor %}{% endfor %}
+          {{ ns.t }}
+      - name: Claude API Vonupt tokens prev 7d
+        unique_id: claude_api_vonupt_tokens_prev_7d
+        unit_of_measurement: token
+        state_class: total
+        icon: mdi:counter
+        availability: "{{ value_json is defined and value_json.data is defined }}"
+        value_template: >-
+          {% set ns = namespace(t=0) %}
+          {% for b in value_json.data[:-7] %}{% for r in b.results %}
+          {% set cc = r.cache_creation or {} %}
+          {% set ns.t = ns.t + (r.uncached_input_tokens or 0) + (r.cache_read_input_tokens or 0)
+             + (cc.ephemeral_5m_input_tokens or 0) + (cc.ephemeral_1h_input_tokens or 0)
+             + (r.output_tokens or 0) %}
+          {% endfor %}{% endfor %}
+          {{ ns.t }}
+      - name: Claude API Vonupt cache hit 7d
+        unique_id: claude_api_vonupt_cache_hit_7d
+        unit_of_measurement: "%"
+        state_class: measurement
+        icon: mdi:bullseye-arrow
+        availability: "{{ value_json is defined and value_json.data is defined }}"
+        value_template: >-
+          {% set ns = namespace(t=0, d=0) %}
+          {% for b in value_json.data[-7:] %}{% for r in b.results %}
+          {% set cc = r.cache_creation or {} %}
+          {% set ns.d = ns.d + (r.cache_read_input_tokens or 0) %}
+          {% set ns.t = ns.t + (r.uncached_input_tokens or 0) + (r.cache_read_input_tokens or 0)
+             + (cc.ephemeral_5m_input_tokens or 0) + (cc.ephemeral_1h_input_tokens or 0) %}
+          {% endfor %}{% endfor %}
+          {{ (ns.d / ns.t * 100) | round(1) if ns.t else 0 }}
+
+  # Hôm nay theo giờ (báo cáo 1d chưa có ngày đang chạy)
+  - resource_template: >-
+      https://api.anthropic.com/v1/organizations/usage_report/messages?starting_at={{
+      utcnow().strftime('%Y-%m-%dT00:00:00Z') }}&bucket_width=1h&limit=24
     headers:
       x-api-key: !secret anthropic_admin_key_vonupt
       anthropic-version: "2023-06-01"
@@ -63,21 +288,6 @@ rest:
     sensor:
       - name: Claude API Vonupt tokens today
         unique_id: claude_api_vonupt_tokens_today
-        unit_of_measurement: token
-        state_class: total
-        icon: mdi:counter
-        availability: "{{ value_json is defined and value_json.data is defined }}"
-        value_template: >-
-          {% set ns = namespace(t=0) %}
-          {% for r in (value_json.data | last).results %}
-          {% set cc = r.cache_creation or {} %}
-          {% set ns.t = ns.t + (r.uncached_input_tokens or 0) + (r.cache_read_input_tokens or 0)
-             + (cc.ephemeral_5m_input_tokens or 0) + (cc.ephemeral_1h_input_tokens or 0)
-             + (r.output_tokens or 0) %}
-          {% endfor %}
-          {{ ns.t }}
-      - name: Claude API Vonupt tokens 7d
-        unique_id: claude_api_vonupt_tokens_7d
         unit_of_measurement: token
         state_class: total
         icon: mdi:counter
@@ -93,12 +303,14 @@ rest:
           {{ ns.t }}
 
   # ───────────────────────────── Vokupt
+  # Tháng này, gồm cả hôm nay (analytics)
   - resource_template: >-
-      https://api.anthropic.com/v1/organizations/cost_report?starting_at={{
-      utcnow().strftime('%Y-%m-01T00:00:00Z') }}&limit=31
+      https://api.anthropic.com/v1/organizations/analytics/cost?starting_at={{
+      utcnow().strftime('%Y-%m-01T00:00:00Z') }}&group_by[]=token_type&group_by[]=cost_type&limit=100
     headers:
       x-api-key: !secret anthropic_admin_key_vokupt
       anthropic-version: "2023-06-01"
+      anthropic-beta: analytics-usage-cost-2026-08-24
     scan_interval: 600
     timeout: 30
     sensor:
@@ -110,11 +322,38 @@ rest:
         icon: mdi:cash-multiple
         availability: "{{ value_json is defined and value_json.data is defined }}"
         value_template: >-
-          {% set ns = namespace(c=0) %}
-          {% for b in value_json.data %}{% for r in b.results %}
-          {% set ns.c = ns.c + (r.amount | float(0)) %}
-          {% endfor %}{% endfor %}
-          {{ (ns.c / 100) | round(2) }}
+          {{ ((value_json.data | map(attribute='cost.amount') | map('float', 0) | sum) / 100) | round(2) }}
+      - name: Claude API Vokupt cache saved month
+        unique_id: claude_api_vokupt_cache_saved_month
+        unit_of_measurement: USD
+        device_class: monetary
+        state_class: total
+        icon: mdi:piggy-bank-outline
+        availability: "{{ value_json is defined and value_json.data is defined }}"
+        value_template: >-
+          {{ ((value_json.data | selectattr('group.token_type', 'eq', 'cache_read_input_tokens')
+              | map(attribute='cost.amount') | map('float', 0) | sum) * 9 / 100) | round(2) }}
+
+  # Từ ngày mốc số dư, từng ngày (analytics): tổng để tính số dư + dòng hôm nay
+  - resource_template: >-
+      https://api.anthropic.com/v1/organizations/analytics/cost?starting_at={% set d = states('input_datetime.claude_api_vokupt_credit_base_date') %}{{ d if d is match('20') else utcnow().strftime('%Y-%m-%d') }}T00:00:00Z&ending_at={{
+      (utcnow() + timedelta(days=1)).strftime('%Y-%m-%dT00:00:00Z') }}&time_bucket_width=1d&order_by=time&order=asc&limit=100
+    headers:
+      x-api-key: !secret anthropic_admin_key_vokupt
+      anthropic-version: "2023-06-01"
+      anthropic-beta: analytics-usage-cost-2026-08-24
+    scan_interval: 600
+    timeout: 30
+    sensor:
+      - name: Claude API Vokupt cost since base
+        unique_id: claude_api_vokupt_cost_since_base
+        unit_of_measurement: USD
+        device_class: monetary
+        state_class: total
+        icon: mdi:cash-minus
+        availability: "{{ value_json is defined and value_json.data is defined }}"
+        value_template: >-
+          {{ ((value_json.data | map(attribute='cost.amount') | map('float', 0) | sum) / 100) | round(2) }}
       - name: Claude API Vokupt cost today
         unique_id: claude_api_vokupt_cost_today
         unit_of_measurement: USD
@@ -123,12 +362,97 @@ rest:
         icon: mdi:cash
         availability: "{{ value_json is defined and value_json.data is defined }}"
         value_template: >-
-          {% set b = value_json.data | last %}
-          {{ ((b.results | map(attribute='amount') | map('float', 0) | sum) / 100) | round(2) }}
+          {% set h = utcnow().strftime('%Y-%m-%d') %}
+          {{ ((value_json.data | selectattr('starting_at', 'match', h)
+              | map(attribute='cost.amount') | map('float', 0) | sum) / 100) | round(2) }}
 
+  # Ngày đã đóng kể từ ngày mốc (cost_report): số liệu chốt cho automation
+  - resource_template: >-
+      https://api.anthropic.com/v1/organizations/cost_report?starting_at={% set d = states('input_datetime.claude_api_vokupt_credit_base_date') %}{{ d if d is match('20') else utcnow().strftime('%Y-%m-%d') }}T00:00:00Z&limit=31
+    headers:
+      x-api-key: !secret anthropic_admin_key_vokupt
+      anthropic-version: "2023-06-01"
+    scan_interval: 600
+    timeout: 30
+    sensor:
+      - name: Claude API Vokupt cost closed
+        unique_id: claude_api_vokupt_cost_closed
+        unit_of_measurement: USD
+        icon: mdi:cash-lock
+        availability: "{{ value_json is defined and value_json.data is defined }}"
+        value_template: >-
+          {% set ns = namespace(c=0) %}
+          {% for b in value_json.data %}{% for r in b.results %}
+          {% set ns.c = ns.c + (r.amount | float(0)) %}
+          {% endfor %}{% endfor %}
+          {{ (ns.c / 100) | round(4) }}
+      - name: Claude API Vokupt cost closed until
+        unique_id: claude_api_vokupt_cost_closed_until
+        icon: mdi:calendar-check
+        availability: "{{ value_json is defined and value_json.data is defined }}"
+        value_template: >-
+          {{ (value_json.data | last).ending_at[:10] if value_json.data else 'none' }}
+
+  # 14 ngày đã đóng: 7 ngày qua, 7 ngày trước đó (so sánh như Console), tỷ lệ trúng cache
   - resource_template: >-
       https://api.anthropic.com/v1/organizations/usage_report/messages?starting_at={{
-      (utcnow() - timedelta(days=6)).strftime('%Y-%m-%dT00:00:00Z') }}&bucket_width=1d&limit=7&group_by[]=model
+      (utcnow() - timedelta(days=14)).strftime('%Y-%m-%dT00:00:00Z') }}&bucket_width=1d&limit=14&group_by[]=model
+    headers:
+      x-api-key: !secret anthropic_admin_key_vokupt
+      anthropic-version: "2023-06-01"
+    scan_interval: 600
+    timeout: 30
+    sensor:
+      - name: Claude API Vokupt tokens 7d
+        unique_id: claude_api_vokupt_tokens_7d
+        unit_of_measurement: token
+        state_class: total
+        icon: mdi:counter
+        availability: "{{ value_json is defined and value_json.data is defined }}"
+        value_template: >-
+          {% set ns = namespace(t=0) %}
+          {% for b in value_json.data[-7:] %}{% for r in b.results %}
+          {% set cc = r.cache_creation or {} %}
+          {% set ns.t = ns.t + (r.uncached_input_tokens or 0) + (r.cache_read_input_tokens or 0)
+             + (cc.ephemeral_5m_input_tokens or 0) + (cc.ephemeral_1h_input_tokens or 0)
+             + (r.output_tokens or 0) %}
+          {% endfor %}{% endfor %}
+          {{ ns.t }}
+      - name: Claude API Vokupt tokens prev 7d
+        unique_id: claude_api_vokupt_tokens_prev_7d
+        unit_of_measurement: token
+        state_class: total
+        icon: mdi:counter
+        availability: "{{ value_json is defined and value_json.data is defined }}"
+        value_template: >-
+          {% set ns = namespace(t=0) %}
+          {% for b in value_json.data[:-7] %}{% for r in b.results %}
+          {% set cc = r.cache_creation or {} %}
+          {% set ns.t = ns.t + (r.uncached_input_tokens or 0) + (r.cache_read_input_tokens or 0)
+             + (cc.ephemeral_5m_input_tokens or 0) + (cc.ephemeral_1h_input_tokens or 0)
+             + (r.output_tokens or 0) %}
+          {% endfor %}{% endfor %}
+          {{ ns.t }}
+      - name: Claude API Vokupt cache hit 7d
+        unique_id: claude_api_vokupt_cache_hit_7d
+        unit_of_measurement: "%"
+        state_class: measurement
+        icon: mdi:bullseye-arrow
+        availability: "{{ value_json is defined and value_json.data is defined }}"
+        value_template: >-
+          {% set ns = namespace(t=0, d=0) %}
+          {% for b in value_json.data[-7:] %}{% for r in b.results %}
+          {% set cc = r.cache_creation or {} %}
+          {% set ns.d = ns.d + (r.cache_read_input_tokens or 0) %}
+          {% set ns.t = ns.t + (r.uncached_input_tokens or 0) + (r.cache_read_input_tokens or 0)
+             + (cc.ephemeral_5m_input_tokens or 0) + (cc.ephemeral_1h_input_tokens or 0) %}
+          {% endfor %}{% endfor %}
+          {{ (ns.d / ns.t * 100) | round(1) if ns.t else 0 }}
+
+  # Hôm nay theo giờ (báo cáo 1d chưa có ngày đang chạy)
+  - resource_template: >-
+      https://api.anthropic.com/v1/organizations/usage_report/messages?starting_at={{
+      utcnow().strftime('%Y-%m-%dT00:00:00Z') }}&bucket_width=1h&limit=24
     headers:
       x-api-key: !secret anthropic_admin_key_vokupt
       anthropic-version: "2023-06-01"
@@ -137,21 +461,6 @@ rest:
     sensor:
       - name: Claude API Vokupt tokens today
         unique_id: claude_api_vokupt_tokens_today
-        unit_of_measurement: token
-        state_class: total
-        icon: mdi:counter
-        availability: "{{ value_json is defined and value_json.data is defined }}"
-        value_template: >-
-          {% set ns = namespace(t=0) %}
-          {% for r in (value_json.data | last).results %}
-          {% set cc = r.cache_creation or {} %}
-          {% set ns.t = ns.t + (r.uncached_input_tokens or 0) + (r.cache_read_input_tokens or 0)
-             + (cc.ephemeral_5m_input_tokens or 0) + (cc.ephemeral_1h_input_tokens or 0)
-             + (r.output_tokens or 0) %}
-          {% endfor %}
-          {{ ns.t }}
-      - name: Claude API Vokupt tokens 7d
-        unique_id: claude_api_vokupt_tokens_7d
         unit_of_measurement: token
         state_class: total
         icon: mdi:counter

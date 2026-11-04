@@ -31,7 +31,8 @@ DASHBOARD_META = {
     "show_in_sidebar": True, "require_admin": False, "mode": "storage",
 }
 # Thêm tài khoản: thêm entry Claude Usage trong HA, đổi entity_id sang sensor.claude_<slug>_*,
-# thêm khối REST + secret trong packages/62_claude_api_console.yaml, thêm dòng ở đây
+# thêm khối REST + secret trong packages/62_claude_api_console.yaml, thêm dòng ở đây.
+# month_limit = "giới hạn bậc" (USD/tháng) trên dashboard Console; API không trả, bỏ trống thì không vẽ thanh.
 ACCOUNTS = [{"slug": "vonupt", "name": "Vonupt"}, {"slug": "vokupt", "name": "Vokupt"}]
 CONFIG = {"title": "Claude Code", "views": [{
     "title": "Hạn mức", "path": "han-muc", "icon": "mdi:gauge", "type": "panel",
