@@ -85,7 +85,7 @@ h1 .logo { width: 30px; height: 30px; border-radius: 9px; display: grid; place-i
 .dau { display: flex; align-items: center; gap: 10px; }
 .cham { width: 10px; height: 10px; border-radius: 50%; background: var(--c); box-shadow: 0 0 0 3px color-mix(in oklch, var(--c) 22%, transparent), 0 0 12px var(--c); }
 .ten { font-size: 1.15rem; font-weight: 600; }
-.nhan { margin-left: auto; font-size: 0.75rem; font-weight: 600; letter-spacing: 0.02em; padding: 3px 10px; border-radius: 999px;
+.nhan { margin-left: auto; font-size: .8rem; font-weight: 600; letter-spacing: 0.02em; padding: 3px 10px; border-radius: 999px;
   color: var(--m); background: color-mix(in oklch, var(--m) 15%, transparent); border: 1px solid color-mix(in oklch, var(--m) 35%, transparent); }
 .chinh { display: grid; grid-template-columns: auto 1fr; gap: 22px; align-items: center; }
 @media (max-width: 460px) { .chinh { grid-template-columns: 1fr; justify-items: center; } }
@@ -95,7 +95,7 @@ h1 .logo { width: 30px; height: 30px; border-radius: 9px; display: grid; place-i
 .vong .so { position: absolute; inset: 0; display: grid; place-content: center; text-align: center; }
 .vong .so b { font-size: 2.4rem; font-weight: 650; letter-spacing: -0.03em; line-height: 1; }
 .vong .so b small { font-size: 1rem; font-weight: 500; color: var(--dim); margin-left: 1px; }
-.vong .so span { font-size: 0.75rem; color: var(--dim); text-transform: uppercase; letter-spacing: 0.08em; margin-top: 4px; }
+.vong .so span { font-size: .8rem; color: var(--dim); text-transform: uppercase; letter-spacing: 0.08em; margin-top: 4px; }
 .thanh { display: flex; flex-direction: column; gap: 14px; min-width: 0; width: 100%; }
 .dong { display: flex; flex-direction: column; gap: 6px; }
 .dong .tren { display: flex; align-items: baseline; gap: 8px; }
@@ -104,31 +104,31 @@ h1 .logo { width: 30px; height: 30px; border-radius: 9px; display: grid; place-i
 .ray { position: relative; height: 8px; border-radius: 999px; background: var(--track); overflow: visible; }
 .ray i { position: absolute; inset: 0 auto 0 0; border-radius: 999px; background: var(--m); box-shadow: 0 0 10px color-mix(in oklch, var(--m) 70%, transparent); }
 .ray .moc { position: absolute; top: -4px; bottom: -4px; width: 2px; border-radius: 2px; background: var(--fg); opacity: 0.7; }
-.dong .duoi { font-size: 0.78rem; color: var(--dim); display: flex; gap: 6px; flex-wrap: wrap; }
+.dong .duoi { font-size: .8rem; color: var(--dim); display: flex; gap: 6px; flex-wrap: wrap; }
 .dong .duoi b { color: var(--fg); font-weight: 600; }
 .nhip { font-size: 0.85rem; color: var(--dim); display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
 .nhip b { color: var(--m); }
 .api { border-top: 1px solid var(--border); padding-top: 16px; display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
 @media (max-width: 520px) { .api { grid-template-columns: repeat(2, 1fr); } }
-.api .tieu { grid-column: 1 / -1; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--dim); display: flex; gap: 6px; align-items: center; }
+.api .tieu { grid-column: 1 / -1; font-size: .8rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--dim); display: flex; gap: 6px; align-items: center; }
 .o { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
-.o span { font-size: 0.75rem; color: var(--dim); }
+.o span { font-size: .8rem; color: var(--dim); }
 .o b { font-size: 1.25rem; font-weight: 650; letter-spacing: -0.01em; }
-.o b small { font-size: 0.75rem; font-weight: 500; color: var(--dim); margin-left: 2px; }
+.o b small { font-size: .8rem; font-weight: 500; color: var(--dim); margin-left: 2px; }
 .vi { grid-column: 1 / -1; display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; padding: 14px 16px; border-radius: 14px;
   background: color-mix(in oklch, var(--c) 8%, transparent); border: 1px solid color-mix(in oklch, var(--c) 28%, transparent); }
 .vi .o b { font-size: 1.7rem; color: var(--c); text-shadow: 0 0 14px color-mix(in oklch, var(--c) 55%, transparent); }
-.vi .ct { font-size: 0.78rem; color: var(--dim); }
+.vi .ct { font-size: .8rem; color: var(--dim); }
 .vi .ct b { font-size: inherit; font-weight: 600; color: var(--fg); text-shadow: none; }
 .vi .han b { font-size: 1.25rem; color: var(--m, var(--fg)); text-shadow: none; }
-.sua { all: unset; cursor: pointer; margin-left: 6px; color: var(--dim); font-size: 0.72rem; padding: 1px 7px; border-radius: 999px; border: 1px solid var(--border); }
+.sua { all: unset; cursor: pointer; margin-left: 6px; color: var(--dim); font-size: .8rem; padding: 1px 7px; border-radius: 999px; border: 1px solid var(--border); }
 .sua:hover, .sua:focus-visible { color: var(--fg); border-color: var(--c); }
 .thang { grid-column: 1 / -1; }
 .goi { font-size: 0.85rem; color: var(--dim); display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
 .goi b { color: var(--fg); font-weight: 600; }
 .goi .sua { margin-left: 0; }
-.uoc { grid-column: 1 / -1; font-size: 0.78rem; color: var(--dim); }
-.tang { font-size: 0.72rem; font-weight: 600; color: var(--dim); margin-left: 4px; }
+.uoc { grid-column: 1 / -1; font-size: .8rem; color: var(--dim); }
+.tang { font-size: .8rem; font-weight: 600; color: var(--dim); margin-left: 4px; }
 .goiy { grid-column: 1 / -1; font-size: 0.82rem; color: var(--dim); }
 .goiy code { color: var(--fg); background: var(--track); padding: 1px 5px; border-radius: 5px; }
 .loi { font-size: 0.85rem; color: var(--bad); }
@@ -137,8 +137,8 @@ h1 .logo { width: 30px; height: 30px; border-radius: 9px; display: grid; place-i
 .bd .chu { display: flex; gap: 14px; font-size: 0.8rem; color: var(--dim); flex-wrap: wrap; }
 .bd .chu i { display: inline-block; width: 10px; height: 3px; border-radius: 2px; background: var(--c); margin-right: 6px; vertical-align: middle; }
 .bd svg { width: 100%; height: auto; display: block; overflow: visible; }
-.bd svg text { fill: var(--dim); font-size: 10px; }
-.chan { color: var(--dim); font-size: 0.78rem; }
+.bd svg text { fill: var(--dim); font-size: 11px; }
+.chan { color: var(--dim); font-size: .8rem; }
 .chan a { color: var(--primary); }
 @media (prefers-reduced-motion: no-preference) { .ray i, .vong circle.do { transition: all 0.6s cubic-bezier(.2,.8,.2,1); } }
 `;
