@@ -37,6 +37,7 @@ ACCOUNTS = [{"slug": "vonupt", "name": "Vonupt", "plan": "Ultra"},
             {"slug": "vokupt", "name": "Vokupt", "plan": "Ultra"}]
 CONFIG = {"title": "Claude Code", "views": [{
     "title": "Hạn mức", "path": "han-muc", "icon": "mdi:gauge", "type": "panel",
+    "theme": "palette-axi-neon",  # theme chung (chuẩn hoá giao diện 08/11/2026, DESIGN.md)
     "cards": [{"type": "custom:claude-code-card", "accounts": ACCOUNTS}],
 }]}
 
