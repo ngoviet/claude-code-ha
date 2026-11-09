@@ -80,10 +80,9 @@ h1 .logo { width: 30px; height: 30px; border-radius: 9px; display: grid; place-i
   backdrop-filter: blur(8px);
 }
 .the[style*="--c"] { border-color: color-mix(in oklch, var(--c) 40%, var(--border));
-  box-shadow: 0 0 0 1px color-mix(in oklch, var(--c) 12%, transparent), 0 0 28px -6px color-mix(in oklch, var(--c) 45%, transparent),
-    inset 0 1px 0 color-mix(in oklch, var(--c) 18%, transparent); }
+  box-shadow: inset 0 1px 0 color-mix(in oklch, var(--c) 18%, transparent); }
 .dau { display: flex; align-items: center; gap: 10px; }
-.cham { width: 10px; height: 10px; border-radius: 50%; background: var(--c); box-shadow: 0 0 0 3px color-mix(in oklch, var(--c) 22%, transparent), 0 0 12px var(--c); }
+.cham { width: 10px; height: 10px; border-radius: 50%; background: var(--c); }
 .ten { font-size: 1.15rem; font-weight: 600; }
 .nhan { margin-left: auto; font-size: .8rem; font-weight: 600; letter-spacing: 0.02em; padding: 3px 10px; border-radius: 999px;
   color: var(--m); background: color-mix(in oklch, var(--m) 15%, transparent); border: 1px solid color-mix(in oklch, var(--m) 35%, transparent); }
@@ -91,7 +90,6 @@ h1 .logo { width: 30px; height: 30px; border-radius: 9px; display: grid; place-i
 @media (max-width: 460px) { .chinh { grid-template-columns: 1fr; justify-items: center; } }
 .vong { position: relative; width: 148px; height: 148px; }
 .vong svg { width: 100%; height: 100%; transform: rotate(-90deg); overflow: visible; }
-.vong circle.do { filter: drop-shadow(0 0 6px currentColor); }
 .vong .so { position: absolute; inset: 0; display: grid; place-content: center; text-align: center; }
 .vong .so b { font-size: 2.4rem; font-weight: 650; letter-spacing: -0.03em; line-height: 1; }
 .vong .so b small { font-size: 1rem; font-weight: 500; color: var(--dim); margin-left: 1px; }
@@ -102,7 +100,7 @@ h1 .logo { width: 30px; height: 30px; border-radius: 9px; display: grid; place-i
 .dong .tren .tieu { font-weight: 500; }
 .dong .tren .gt { margin-left: auto; font-weight: 650; font-size: 1.05rem; }
 .ray { position: relative; height: 8px; border-radius: 999px; background: var(--track); overflow: visible; }
-.ray i { position: absolute; inset: 0 auto 0 0; border-radius: 999px; background: var(--m); box-shadow: 0 0 10px color-mix(in oklch, var(--m) 70%, transparent); }
+.ray i { position: absolute; inset: 0 auto 0 0; border-radius: 999px; background: var(--m); }
 .ray .moc { position: absolute; top: -4px; bottom: -4px; width: 2px; border-radius: 2px; background: var(--fg); opacity: 0.7; }
 .dong .duoi { font-size: .875rem; color: var(--dim); display: flex; gap: 6px; flex-wrap: wrap; }
 .dong .duoi b { color: var(--fg); font-weight: 600; }
@@ -117,7 +115,7 @@ h1 .logo { width: 30px; height: 30px; border-radius: 9px; display: grid; place-i
 .o b small { font-size: .875rem; font-weight: 500; color: var(--dim); margin-left: 2px; }
 .vi { grid-column: 1 / -1; display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; padding: 14px 16px; border-radius: 14px;
   background: color-mix(in oklch, var(--c) 8%, transparent); border: 1px solid color-mix(in oklch, var(--c) 28%, transparent); }
-.vi .o b { font-size: 1.7rem; color: var(--c); text-shadow: 0 0 14px color-mix(in oklch, var(--c) 55%, transparent); }
+.vi .o b { font-size: 1.7rem; color: var(--c); }
 .vi .ct { font-size: .875rem; color: var(--dim); }
 .vi .ct b { font-size: inherit; font-weight: 600; color: var(--fg); text-shadow: none; }
 .vi .han b { font-size: 1.25rem; color: var(--m, var(--fg)); text-shadow: none; }
@@ -356,7 +354,7 @@ class ClaudeCodeCard extends HTMLElement {
       let d = `M${x(Math.max(t0, pts[0][0]))},${y(pts[0][1])}`;
       for (let k = 1; k < pts.length; k++) d += `H${x(pts[k][0])}V${y(pts[k][1])}`;
       if (tuan) g += `<path d="${d}V${y(0)}H${x(Math.max(t0, pts[0][0]))}Z" fill="${c}" opacity="0.14"/>`;
-      g += `<path d="${d}" fill="none" stroke="${c}" stroke-linejoin="round" ${tuan ? `stroke-width="2.2" style="filter:drop-shadow(0 0 4px ${c})"` : `stroke-width="1.2" opacity="0.7"`}/>`;
+      g += `<path d="${d}" fill="none" stroke="${c}" stroke-linejoin="round" ${tuan ? `stroke-width="2.4"` : `stroke-width="1.2" opacity="0.7"`}/>`;
       g += `<circle cx="${x(t1)}" cy="${y(cuoi ?? 0)}" r="4" fill="${c}" stroke="var(--bg)" stroke-width="2"/>`;
       chu.unshift(`<span style="--c:${c}"><i></i>${nhan} · ${fmtPct(cuoi)}%</span>`);
     }
