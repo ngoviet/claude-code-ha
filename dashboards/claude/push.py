@@ -23,7 +23,7 @@ import websocket  # type: ignore
 sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 HERE = Path(__file__).resolve().parent
 ROOT = HERE.parents[1]
-HA = "192.168.10.15:8123"
+HA = "192.168.12.20:8123"
 CARD = HERE / "claude-code-card.js"
 CARD_URL = f"/local/claude/{CARD.name}"
 DASHBOARD_META = {
@@ -56,7 +56,7 @@ def load_env() -> dict[str, str]:
 def deploy(env: dict[str, str]) -> None:
     ssh = paramiko.SSHClient()
     ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-    ssh.connect("192.168.10.15", username="vokupt", password=env["HA_PASS"], timeout=10)
+    ssh.connect("192.168.12.20", username="vokupt", password=env["HA_PASS"], timeout=10)
     try:
         dst = f"/config/www/claude/{CARD.name}"
         stdin, stdout, stderr = ssh.exec_command(f"sudo mkdir -p /config/www/claude && sudo sh -c 'base64 -d > {dst}'")
