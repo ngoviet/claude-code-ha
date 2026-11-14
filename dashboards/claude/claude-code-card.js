@@ -55,9 +55,9 @@ const CSS = `
 :host {
   color-scheme: dark;
   /* neon-dark của palette-axi; hex = bản đã kẹp vào sRGB. acc1 = fuchsia (Vonupt), acc2 = cyan (Vokupt) */
-  --bg-edge: #060a14; --bg: #0a1122; --surface: #0e182e; --glow: #142443; --border: #1e2b4a;
-  --dim: #a2b7d7; --fg: #e6edf7; --primary: #22d3ee; --acc1: #e879f9; --acc2: #22d3ee;
-  --ok: #22c55e; --warn: #f59e0b; --bad: #ff716a;
+  --bg-edge: var(--secondary-background-color, #060a14); --bg: var(--primary-background-color, #0a1122); --surface: var(--card-background-color, #0e182e); --glow: var(--light-primary-color, #142443); --border: var(--divider-color, #1e2b4a);
+  --dim: var(--secondary-text-color, #a2b7d7); --fg: var(--primary-text-color, #e6edf7); --primary: var(--primary-color, #22d3ee); --acc1: #e879f9; --acc2: var(--primary-color, #22d3ee);
+  --ok: var(--success-color, #22c55e); --warn: var(--warning-color, #f59e0b); --bad: var(--error-color, #ff716a);
   --track: color-mix(in oklch, var(--border) 70%, transparent);
   display: block;
 }
@@ -69,10 +69,10 @@ const CSS = `
   font-variant-numeric: tabular-nums;
 }
 header { display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
-h1 { margin: 0; font-size: clamp(1.5rem, 2.6vw, 2rem); font-weight: 650; letter-spacing: -0.02em; display: flex; align-items: center; gap: 10px; }
+h1 { margin: 0; font-size: clamp(24px, 2.6vw, 32px); font-weight: 650; letter-spacing: -0.02em; display: flex; align-items: center; gap: 10px; }
 h1 .logo { width: 30px; height: 30px; border-radius: 9px; display: grid; place-items: center;
   background: color-mix(in oklch, var(--primary) 18%, transparent); color: var(--primary); }
-.phu { color: var(--dim); font-size: .875rem; }
+.phu { color: var(--dim); font-size: 14px; }
 .luoi { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 420px), 1fr)); gap: 20px; }
 .the {
   background: color-mix(in oklch, var(--surface) 82%, transparent); border: 1px solid var(--border);
@@ -83,60 +83,60 @@ h1 .logo { width: 30px; height: 30px; border-radius: 9px; display: grid; place-i
   box-shadow: inset 0 1px 0 color-mix(in oklch, var(--c) 18%, transparent); }
 .dau { display: flex; align-items: center; gap: 10px; }
 .cham { width: 10px; height: 10px; border-radius: 50%; background: var(--c); }
-.ten { font-size: 1.15rem; font-weight: 600; }
-.nhan { margin-left: auto; font-size: .8rem; font-weight: 600; letter-spacing: 0.02em; padding: 3px 10px; border-radius: 999px;
+.ten { font-size: 18px; font-weight: 600; }
+.nhan { margin-left: auto; font-size: 13px; font-weight: 600; letter-spacing: 0.02em; padding: 3px 10px; border-radius: 999px;
   color: var(--m); background: color-mix(in oklch, var(--m) 15%, transparent); border: 1px solid color-mix(in oklch, var(--m) 35%, transparent); }
 .chinh { display: grid; grid-template-columns: auto 1fr; gap: 22px; align-items: center; }
 @media (max-width: 460px) { .chinh { grid-template-columns: 1fr; justify-items: center; } }
 .vong { position: relative; width: 148px; height: 148px; }
 .vong svg { width: 100%; height: 100%; transform: rotate(-90deg); overflow: visible; }
 .vong .so { position: absolute; inset: 0; display: grid; place-content: center; text-align: center; }
-.vong .so b { font-size: 2.4rem; font-weight: 650; letter-spacing: -0.03em; line-height: 1; }
-.vong .so b small { font-size: 1rem; font-weight: 500; color: var(--dim); margin-left: 1px; }
-.vong .so span { font-size: .8rem; color: var(--dim); text-transform: uppercase; letter-spacing: 0.08em; margin-top: 4px; }
+.vong .so b { font-size: 38px; font-weight: 650; letter-spacing: -0.03em; line-height: 1; }
+.vong .so b small { font-size: 16px; font-weight: 500; color: var(--dim); margin-left: 1px; }
+.vong .so span { font-size: 13px; color: var(--dim); text-transform: uppercase; letter-spacing: 0.08em; margin-top: 4px; }
 .thanh { display: flex; flex-direction: column; gap: 14px; min-width: 0; width: 100%; }
 .dong { display: flex; flex-direction: column; gap: 6px; }
 .dong .tren { display: flex; align-items: baseline; gap: 8px; }
 .dong .tren .tieu { font-weight: 500; }
-.dong .tren .gt { margin-left: auto; font-weight: 650; font-size: 1.05rem; }
+.dong .tren .gt { margin-left: auto; font-weight: 650; font-size: 17px; }
 .ray { position: relative; height: 8px; border-radius: 999px; background: var(--track); overflow: visible; }
 .ray i { position: absolute; inset: 0 auto 0 0; border-radius: 999px; background: var(--m); }
 .ray .moc { position: absolute; top: -4px; bottom: -4px; width: 2px; border-radius: 2px; background: var(--fg); opacity: 0.7; }
-.dong .duoi { font-size: .875rem; color: var(--dim); display: flex; gap: 6px; flex-wrap: wrap; }
+.dong .duoi { font-size: 14px; color: var(--dim); display: flex; gap: 6px; flex-wrap: wrap; }
 .dong .duoi b { color: var(--fg); font-weight: 600; }
-.nhip { font-size: .875rem; color: var(--dim); display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.nhip { font-size: 14px; color: var(--dim); display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
 .nhip b { color: var(--m); }
 .api { border-top: 1px solid var(--border); padding-top: 16px; display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
 @media (max-width: 520px) { .api { grid-template-columns: repeat(2, 1fr); } }
-.api .tieu { grid-column: 1 / -1; font-size: .8rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--dim); display: flex; gap: 6px; align-items: center; }
+.api .tieu { grid-column: 1 / -1; font-size: 13px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--dim); display: flex; gap: 6px; align-items: center; }
 .o { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
-.o span { font-size: .875rem; color: var(--dim); }
-.o b { font-size: 1.25rem; font-weight: 650; letter-spacing: -0.01em; }
-.o b small { font-size: .875rem; font-weight: 500; color: var(--dim); margin-left: 2px; }
+.o span { font-size: 14px; color: var(--dim); }
+.o b { font-size: 20px; font-weight: 650; letter-spacing: -0.01em; }
+.o b small { font-size: 14px; font-weight: 500; color: var(--dim); margin-left: 2px; }
 .vi { grid-column: 1 / -1; display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; padding: 14px 16px; border-radius: 14px;
   background: color-mix(in oklch, var(--c) 8%, transparent); border: 1px solid color-mix(in oklch, var(--c) 28%, transparent); }
-.vi .o b { font-size: 1.7rem; color: var(--c); }
-.vi .ct { font-size: .875rem; color: var(--dim); }
+.vi .o b { font-size: 27px; color: var(--c); }
+.vi .ct { font-size: 14px; color: var(--dim); }
 .vi .ct b { font-size: inherit; font-weight: 600; color: var(--fg); text-shadow: none; }
-.vi .han b { font-size: 1.25rem; color: var(--m, var(--fg)); text-shadow: none; }
-.sua { all: unset; cursor: pointer; margin-left: 6px; color: var(--dim); font-size: .8rem; padding: 1px 7px; border-radius: 999px; border: 1px solid var(--border); }
+.vi .han b { font-size: 20px; color: var(--m, var(--fg)); text-shadow: none; }
+.sua { all: unset; cursor: pointer; margin-left: 6px; color: var(--dim); font-size: 13px; padding: 1px 7px; border-radius: 999px; border: 1px solid var(--border); }
 .sua:hover, .sua:focus-visible { color: var(--fg); border-color: var(--c); }
 .thang { grid-column: 1 / -1; }
-.goi { font-size: .875rem; color: var(--dim); display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.goi { font-size: 14px; color: var(--dim); display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
 .goi b { color: var(--fg); font-weight: 600; }
 .goi .sua { margin-left: 0; }
-.uoc { grid-column: 1 / -1; font-size: .875rem; color: var(--dim); }
-.tang { font-size: .8rem; font-weight: 600; color: var(--dim); margin-left: 4px; }
-.goiy { grid-column: 1 / -1; font-size: 0.82rem; color: var(--dim); }
+.uoc { grid-column: 1 / -1; font-size: 14px; color: var(--dim); }
+.tang { font-size: 13px; font-weight: 600; color: var(--dim); margin-left: 4px; }
+.goiy { grid-column: 1 / -1; font-size: 13px; color: var(--dim); }
 .goiy code { color: var(--fg); background: var(--track); padding: 1px 5px; border-radius: 5px; }
-.loi { font-size: .875rem; color: var(--bad); }
+.loi { font-size: 14px; color: var(--bad); }
 .bieudo { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 420px), 1fr)); gap: 20px; }
-.bd h2 { margin: 0; font-size: 1rem; font-weight: 600; }
-.bd .chu { display: flex; gap: 14px; font-size: .875rem; color: var(--dim); flex-wrap: wrap; }
+.bd h2 { margin: 0; font-size: 16px; font-weight: 600; }
+.bd .chu { display: flex; gap: 14px; font-size: 14px; color: var(--dim); flex-wrap: wrap; }
 .bd .chu i { display: inline-block; width: 10px; height: 3px; border-radius: 2px; background: var(--c); margin-right: 6px; vertical-align: middle; }
 .bd svg { width: 100%; height: auto; display: block; overflow: visible; }
-.bd svg text { fill: var(--dim); font-size: 11px; }
-.chan { color: var(--dim); font-size: .875rem; }
+.bd svg text { fill: var(--dim); font-size: 12px; }
+.chan { color: var(--dim); font-size: 14px; }
 .chan a { color: var(--primary); }
 @media (prefers-reduced-motion: no-preference) { .ray i, .vong circle.do { transition: all 0.6s cubic-bezier(.2,.8,.2,1); } }
 `;
@@ -158,7 +158,7 @@ class ClaudeCodeCard extends HTMLElement {
   connectedCallback() {
     this._tick = setInterval(() => this._ve(true), 30000);
   }
-  disconnectedCallback() { clearInterval(this._tick); }
+  disconnectedCallback() { clearInterval(this._tick); this._ro?.disconnect(); }
 
   set hass(h) {
     this._hass = h;
@@ -334,7 +334,8 @@ class ClaudeCodeCard extends HTMLElement {
 
   // Biểu đồ đường của một tài khoản, trục 0–100 %: tuần (màu tài khoản, có nền) + phiên 5 giờ (đường mảnh)
   _duong(a, i, ngay = 7) {
-    const W = 600, H = 190, L = 30, R = 8, T = 10, B = 24;
+    // W = bề rộng thật của biểu đồ (đo bằng ResizeObserver trong _ve) ⇒ 1 đơn vị viewBox = 1 px, chữ trục giữ đúng 12px
+    const W = Math.max(280, this._bdW || 600), H = 190, L = 30, R = 8, T = 10, B = 24;
     const t1 = Date.now(), t0 = t1 - ngay * 864e5;
     const x = (t) => L + ((t - t0) / (t1 - t0)) * (W - L - R), y = (v) => T + (1 - v / 100) * (H - T - B);
     let g = "";
@@ -377,6 +378,16 @@ class ClaudeCodeCard extends HTMLElement {
       <div class="chan">Mức đầy: xanh &lt; 60 % · vàng &lt; 85 % · đỏ ≥ 85 %. API tính ngày theo UTC (đổi ngày lúc 07:00 giờ VN), số chi phí có thể trễ vài giờ so với
         <a href="https://platform.claude.com/dashboard" target="_blank" rel="noopener">dashboard Console</a>.</div>
     </div>`;
+    // Đo bề rộng biểu đồ; đổi quá 16px thì vẽ lại với viewBox mới (không lặp: vẽ lại không đổi bề rộng khung)
+    const khung = this.shadowRoot.querySelector(".bd svg");
+    if (khung && window.ResizeObserver) {
+      this._ro ??= new ResizeObserver((ds) => {
+        const w = Math.round(ds[0].contentRect.width);
+        if (w && Math.abs(w - (this._bdW || 0)) > 16) { this._bdW = w; this._ve(); }
+      });
+      this._ro.disconnect();
+      this._ro.observe(khung.parentElement);
+    }
   }
 }
 customElements.define("claude-code-card", ClaudeCodeCard);
