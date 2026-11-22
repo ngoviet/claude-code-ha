@@ -140,6 +140,9 @@ h1 .logo { width: 30px; height: 30px; border-radius: 9px; display: grid; place-i
 .goiy { grid-column: 1 / -1; font-size: 13px; color: var(--dim); }
 .goiy code { color: var(--fg); background: var(--track); padding: 1px 5px; border-radius: 5px; }
 .loi { font-size: 14px; color: var(--bad); }
+.loi.canh { padding: 8px 12px; border: 1px solid var(--bad); border-radius: 10px; }
+.loi.canh a { color: inherit; text-decoration: underline; }
+.loi.canh a:focus-visible { outline: 2px solid var(--bad); outline-offset: 2px; border-radius: 3px; }
 .bieudo { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 420px), 1fr)); gap: 20px; }
 .bd h2 { margin: 0; font-size: 16px; font-weight: 600; }
 .bd .chu { display: flex; gap: 14px; font-size: 14px; color: var(--dim); flex-wrap: wrap; }
@@ -176,7 +179,7 @@ class ClaudeCodeCard extends HTMLElement {
   set hass(h) {
     this._hass = h;
     // Chỉ vẽ lại khi một sensor Claude đổi (tránh vẽ mỗi lần mọi entity trong nhà đổi)
-    const khoa = Object.keys(h.states).filter((e) => /^(sensor\.claude_|input_(number|datetime)\.claude_api_)/.test(e))
+    const khoa = Object.keys(h.states).filter((e) => /^(sensor\.claude_|input_(number|datetime|text)\.claude_api_)/.test(e))
       .map((e) => `${e}=${h.states[e].state}`).join("|");
     if (khoa !== this._khoa) { this._khoa = khoa; this._ve(); }
     if (!this._lsAt || Date.now() - this._lsAt > 600000) this._taiLichSu();
@@ -250,6 +253,21 @@ class ClaudeCodeCard extends HTMLElement {
     return `<div class="goi"><span>Gói${a.plan ? ` <b>${esc(a.plan)}</b>` : ""}</span>
       ${iso ? `<span>gia hạn <b>${gio ? `${esc(gio.slice(0, 5))} ` : ""}${esc(fmtNgay(iso))}</b> · còn <b class="dem"${gio ? ` data-den="${new Date(`${iso}T${gio}`).getTime()}"` : ""}>${gio ? demNguoc(new Date(`${iso}T${gio}`).getTime()) : `${con.toLocaleString("vi-VN")} ngày`}</b></span>` : "<span>chưa nhập ngày gia hạn</span>"}
       <button class="sua" data-sua="goi" data-tk="${esc(a.slug)}">sửa</button></div>`;
+  }
+
+  // Trạng thái gói do script PC1 ghi (subscription_details.status); rỗng/active/trialing ⇒ không cảnh báo
+  _canhBaoGoi(a) {
+    const st = (this._s(`input_text.claude_api_${a.slug}_plan_status`) || "").trim();
+    if (!st || st === "unknown" || st === "unavailable" || st === "active" || st === "trialing") return "";
+    const iso = this._kyGoi(a), han = iso ? fmtNgay(iso) : "";
+    const cau = {
+      past_due: `<b>Thanh toán gói bị lỗi.</b> Stripe đang thử trừ tiền lại${han ? `, hạn chót ${esc(han)}` : ""}. Kiểm tra thẻ thanh toán`,
+      unpaid: "<b>Gói chưa được thanh toán</b>, có thể bị khoá. Kiểm tra thanh toán",
+      canceled: "<b>Gói đã huỷ.</b> Xem lại",
+      incomplete_expired: "<b>Gói đã huỷ</b> vì thanh toán đầu không xong. Xem lại",
+      paused: "<b>Gói đang tạm dừng.</b> Xem lại",
+    }[st] ?? `<b>Trạng thái gói: ${esc(st)}.</b> Kiểm tra`;
+    return `<div class="loi canh">${cau} ở <a href="https://claude.ai/settings/billing" target="_blank" rel="noopener">claude.ai › Billing</a>.</div>`;
   }
 
   _thang(a, cost) {
@@ -346,7 +364,8 @@ class ClaudeCodeCard extends HTMLElement {
       ${pace === null ? "" : `<div class="nhip" style="--m:${m}">Nhịp tuần <b>${pace > 0 ? "+" : ""}${Math.round(pace)} điểm</b>
         so với tiêu đều · vạch trắng là mức nên dùng tới lúc này</div>`}
       ${this._goi(a)}
-      ${loi ? `<div class="loi">Đọc API lỗi, số có thể cũ. Nếu HA báo Re-authenticate, đăng nhập lại entry Claude Usage.</div>` : ""}
+      ${this._canhBaoGoi(a)}
+      ${loi ?`<div class="loi">Đọc API lỗi, số có thể cũ. Nếu HA báo Re-authenticate, đăng nhập lại entry Claude Usage.</div>` : ""}
       <div class="api"><div class="tieu">API · Claude Console</div>${apiHtml}</div>
       <div class="chan">Cập nhật ${phut === null ? "?" : phut} phút trước · hạn mức 5 phút/lần, API 10 phút/lần</div>
     </section>`;

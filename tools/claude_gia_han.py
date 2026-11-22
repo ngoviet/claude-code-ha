@@ -8,7 +8,7 @@ phiên đăng nhập claude.ai ⇒ mỗi tài khoản 1 hồ sơ trình duyệt 
 Lệnh:
   login <tk>          mở cửa sổ claude.ai, chủ tự đăng nhập đúng tài khoản; lưu org của gói
   doc [tk ...]        đọc giờ gia hạn (chỉ đọc, không ghi HA)
-  ghi [tk ...]        đọc rồi ghi vào input_datetime.claude_api_<tk>_plan_renew
+  ghi [tk ...]        đọc rồi ghi vào input_datetime.claude_api_<tk>_plan_renew + input_text.…_plan_status
 Mã thoát: 0 ổn · 1 lỗi (phiên hết hạn, HA từ chối…) · 2 sai cách dùng.
 """
 
@@ -179,15 +179,22 @@ def gio_vn(iso: str | None) -> str:
     return datetime.fromisoformat(iso.replace("Z", "+00:00")).astimezone().strftime("%d/%m/%Y %H:%M:%S")
 
 
-def ghi_ha(tk: str, iso: str) -> str:
+def goi_ha(dich_vu: str, data: dict) -> int:
     e = env()
-    ts = int(datetime.fromisoformat(iso.replace("Z", "+00:00")).timestamp())
     req = urllib.request.Request(
-        f"{e['HA_URL'].rstrip('/')}/api/services/input_datetime/set_datetime",
-        data=json.dumps({"entity_id": f"input_datetime.claude_api_{tk}_plan_renew", "timestamp": ts}).encode(),
+        f"{e['HA_URL'].rstrip('/')}/api/services/{dich_vu.replace('.', '/')}", data=json.dumps(data).encode(),
         headers={"Authorization": f"Bearer {e['HA_TOKEN']}", "Content-Type": "application/json"}, method="POST")
     with urllib.request.urlopen(req, timeout=20) as r:
-        return f"HTTP {r.status}"
+        return r.status
+
+
+def ghi_ha(tk: str, iso: str | None, status: str | None) -> str:
+    """Ghi trạng thái gói (luôn, để card cảnh báo) và giờ gia hạn (khi có)."""
+    goi_ha("input_text.set_value", {"entity_id": f"input_text.claude_api_{tk}_plan_status", "value": status or ""})
+    if iso:
+        ts = int(datetime.fromisoformat(iso.replace("Z", "+00:00")).timestamp())
+        goi_ha("input_datetime.set_datetime", {"entity_id": f"input_datetime.claude_api_{tk}_plan_renew", "timestamp": ts})
+    return "ok"
 
 
 def cmd_doc(tks: list[str], ghi: bool) -> None:
@@ -211,14 +218,14 @@ def cmd_doc(tks: list[str], ghi: bool) -> None:
             dong.append(f"  {r['tk']},-,error,-,\"{r['loi']}\"")
             continue
         ha = "-"
-        if r["next_charge_at"] is None:
-            co_loi = True
-            ha = f"\"không gia hạn (plan_ending_at {gio_vn(r['plan_ending_at'])}) — không ghi\""
-        elif ghi:
+        if ghi:
             try:
-                ha = ghi_ha(r["tk"], r["next_charge_at"])
+                ha = ghi_ha(r["tk"], r["next_charge_at"], r["status"])
             except Exception as ex:  # noqa: BLE001
                 co_loi, ha = True, f"\"lỗi ghi HA: {ex}\""
+        if r["next_charge_at"] is None:
+            co_loi = True
+            ha = f"\"không gia hạn (plan_ending_at {gio_vn(r['plan_ending_at'])}) — chỉ ghi trạng thái\""
         dong.append(f"  {r['tk']},{gio_vn(r['next_charge_at'])},{r['status']},{r['interval']},{ha}")
     ok = sum(1 for r in kq if "loi" not in r)
     dong.insert(0, f"renew: {ok}/{len(kq)} đọc được · {'đã ghi HA' if ghi else 'chỉ đọc'}")
