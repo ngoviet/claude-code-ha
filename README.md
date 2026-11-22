@@ -33,4 +33,7 @@ python pc1/claude_gia_han.py login vokupt   # khi phiên claude.ai hết hạn
 - Python hệ thống của PC1, cần `paramiko`, `websocket-client`, `playwright` (dùng Chrome cài sẵn).
 - Hồ sơ trình duyệt claude.ai ở `%USERPROFILE%\.claude-gia-han\<tk>` — **không** để trong `AppData` (Claude Desktop là
   gói MSIX, ghi vào `AppData\Local` bị chuyển hướng ⇒ Task Scheduler không thấy).
+- Kiểm giao diện card: bộ thử của HA-Config (`python tools/card-harness/build.py` rồi
+  `design-kit check tools/card-harness/out/claude-code-card.html --schemes dark --strict`, chạy trong HA-Config; nó chép
+  `ha/claude-code-card.js` từ repo này).
 - Còn phụ thuộc HA-Config: `.env`, theme `palette-axi-neon`, secret `anthropic_admin_key_<tk>` trong `/config/secrets.yaml`.
