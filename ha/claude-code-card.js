@@ -4,7 +4,7 @@
  *   sensor.claude_<tk>_*      integration HACS hass_claude_usage (5 phút/lần): session_usage, week_usage,
  *                             weekly_<model>_limit_usage (tự nhận mọi model có hạn mức riêng), *_reset_time,
  *                             week_usage_pace (= % đã dùng − % thời gian tuần đã trôi), api_error
- *   sensor.claude_api_<tk>_*  packages/62_claude_api_console.yaml (Admin API, 10 phút/lần)
+ *   sensor.claude_api_<tk>_*  ha/62_claude_api_console.yaml (Admin API, 10 phút/lần)
  *   Số dư + hạn tín dụng: không API nào trả ⇒ credit_balance = số dư mốc − chi phí từ ngày mốc; nút sửa trên card ghi vào
  *   input_number.claude_api_<tk>_credit_base (nhập số Console đang hiện, card cộng lại phần đã trừ) và input_datetime *_credit_expiry.
  *   Lịch sử: WS history/history_during_period (7 ngày, mỗi tài khoản một biểu đồ), tải lại 10 phút/lần.

@@ -19,7 +19,7 @@
 #    số dư = `credit_base` (số dư lúc 00:00 UTC ngày `credit_base_date`) − chi phí từ ngày đó (analytics).
 #    Automation dưới đây chốt ngày đã đóng vào `credit_base` mỗi ngày, nên cửa sổ không vượt 31 ngày của API.
 #    Sau mỗi lần **gói cấp credit mới** (Max 100, Ultra 200 USD/kỳ, hết kỳ mất phần thừa) hoặc nạp tiền: nhập lại số dư + hạn (nút sửa trên card).
-#    Giờ gia hạn gói `plan_renew` (có giờ) do `tools/claude_gia_han.py ghi` trên PC1 ghi mỗi ngày, đọc từ endpoint nội bộ
+#    Giờ gia hạn gói `plan_renew` (có giờ) do `pc1/claude_gia_han.py ghi` (repo claude-code-ha) trên PC1 ghi mỗi ngày, đọc từ endpoint nội bộ
 #    claude.ai `subscription_details.next_charge_at` bằng phiên đăng nhập trên PC1 (cookie không lên HA). PC1 tắt lâu thì
 #    card vẫn tự dời từng tháng; sửa tay vẫn được (nút sửa trên card, chỉ đổi ngày). Kèm `input_text.…_plan_status`.
 #    Hạn dùng `credit_expiry` nhập tay từ Console › Billing › Promotional credits; credit tự mua hết hạn 1 năm sau ngày mua.

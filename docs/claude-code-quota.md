@@ -8,7 +8,7 @@ Báo cáo nghiên cứu + so sánh phương án: https://claude.ai/artifact/Xxvf
 | Phần | Nguồn | Ghi chú |
 |---|---|---|
 | Hạn mức thuê bao | Integration HACS **`hass_claude_usage`** ([trickv/hass-claude-usage](https://github.com/trickv/hass-claude-usage) v10) → `GET api.anthropic.com/api/oauth/usage` (endpoint sau `/usage`, **không công bố**) | Mỗi tài khoản 1 entry OAuth (luồng đăng nhập của Anthropic, scope chỉ `user:profile` ⇒ token **không chạy được model**). Poll 300 s (đừng hạ: gọi dồn bị chặn ~24 giờ, mất luôn `/usage` trong Claude Code) |
-| API Console | Admin API chính thức `cost_report` + `usage_report/messages` → [packages/62_claude_api_console.yaml](../packages/62_claude_api_console.yaml) | **Mỗi tài khoản 1 Admin key** (Console riêng): secret `anthropic_admin_key_vonupt`, `anthropic_admin_key_vokupt` (`sk-ant-admin01-…`, Console phải là **Organization**). Ngày theo **UTC**. `amount` tính bằng **cent**. Key chưa có/sai ⇒ sensor `unavailable` |
+| API Console | Admin API chính thức `cost_report` + `usage_report/messages` → [ha/62_claude_api_console.yaml](../ha/62_claude_api_console.yaml) | **Mỗi tài khoản 1 Admin key** (Console riêng): secret `anthropic_admin_key_vonupt`, `anthropic_admin_key_vokupt` (`sk-ant-admin01-…`, Console phải là **Organization**). Ngày theo **UTC**. `amount` tính bằng **cent**. Key chưa có/sai ⇒ sensor `unavailable` |
 
 Chủ chọn integration HACS (chạy cả khi PC1 tắt), chấp nhận token OAuth nằm trên HA và trong backup HA.
 
@@ -39,21 +39,21 @@ API: `sensor.claude_api_<tài khoản>_cost_today`, `_cost_month`, `_cache_saved
 
 - Nguồn: `GET https://claude.ai/api/organizations/{org}/subscription_details` — endpoint nội bộ của trang Settings › Billing, trả `next_charge_at` (UTC, tới giây), `plan_ending_at` (khác `null` khi đã huỷ/hạ gói), `status`, `billing_interval`. Chỉ gọi được bằng **cookie claude.ai**; OAuth `user:profile` không có (profile chỉ có `subscription_created_at`, **không** dùng tính ngày gia hạn được: Vokupt tạo ngày 19, kỳ tính tiền ngày 21). Trên GitHub chưa thấy ai dùng endpoint này.
 - Org đúng là org `billing_type = stripe_subscription` (mỗi tài khoản còn 1 org `prepaid` của API, không có `subscription_details`).
-- Script [`tools/claude_gia_han.py`](../tools/claude_gia_han.py): `login <tk>` · `doc` (chỉ đọc) · `ghi` (gọi `input_datetime.set_datetime` bằng `timestamp`). Hồ sơ trình duyệt mỗi tài khoản ở `%USERPROFILE%\.claude-gia-han\<tk>` (ngoài repo, cookie **không** lên HA). Nếu `next_charge_at` rỗng (gói sắp dừng) thì không ghi, báo lỗi.
+- Script [`pc1/claude_gia_han.py`](../pc1/claude_gia_han.py): `login <tk>` · `doc` (chỉ đọc) · `ghi` (gọi `input_datetime.set_datetime` bằng `timestamp`). Hồ sơ trình duyệt mỗi tài khoản ở `%USERPROFILE%\.claude-gia-han\<tk>` (ngoài repo, cookie **không** lên HA). Nếu `next_charge_at` rỗng (gói sắp dừng) thì không ghi, báo lỗi.
 - Lịch: Task Scheduler **`HA - Claude gio gia han`** 08:30 hằng ngày (bỏ lỡ thì chạy khi máy bật), chạy `pythonw.exe … ghi --log %USERPROFILE%\.claude-gia-han\lan-chay-cuoi.log` (không mở cửa sổ). Gỡ: `Unregister-ScheduledTask "HA - Claude gio gia han"`.
 - **Đừng để hồ sơ trong `AppData`**: Claude Desktop là gói MSIX, tiến trình do nó chạy ghi vào `AppData\Local` bị chuyển sang `AppData\Local\Packages\Claude_*\LocalCache\Local\` ⇒ Task Scheduler không thấy (lịch báo `1`, không có log). Thư mục home không bị chuyển. Dời hồ sơ Chrome sang chỗ khác (cùng user Windows) vẫn giữ đăng nhập.
 - `status` trong `subscription_details`: `active`, hoặc `past_due` khi lần trừ tiền gần nhất thất bại (Stripe thử lại tới `next_charge_at`). Script ghi vào `input_text.claude_api_<tk>_plan_status`; khác `active`/`trialing` thì card hiện khung đỏ cảnh báo kèm link claude.ai › Billing.
-- Phiên hết hạn (log báo `phiên hết hạn hoặc bị chặn`): chạy lại `python tools/claude_gia_han.py login <tk>`.
+- Phiên hết hạn (log báo `phiên hết hạn hoặc bị chặn`): chạy lại `python pc1/claude_gia_han.py login <tk>`.
 - Bẫy: Google **chặn đăng nhập** trong trình duyệt do Playwright điều khiển ⇒ `login` mở Chrome thường, chủ đăng nhập rồi đóng cửa sổ; chạy ẩn sau đó dùng chung hồ sơ. Ở chế độ ẩn Cloudflare hiện "Just a moment" vài giây ⇒ gọi API ngay thì 403, script chờ và gọi lại.
-- Giới hạn bậc tháng cũng không có API: khai `month_limit` trong `ACCOUNTS` ở `push.py`.
+- Giới hạn bậc tháng cũng không có API: khai `month_limit` trong `ACCOUNTS` ở `ha/push.py`.
 
 ## Vận hành
 
-- Giao diện: một card tự viết toàn trang [`dashboards/claude/claude-code-card.js`](../dashboards/claude/claude-code-card.js) (view `panel`, không cần card HACS): mỗi tài khoản 1 khối — vòng % tuần có vạch "tiêu đều", thanh 5 giờ / tuần / từng model (tự dò `*_weekly_*_limit_usage`), đếm ngược, nhãn nhịp (Tiêu nhanh / Đúng nhịp / Còn dư nhiều), khối API; dưới cùng mỗi tài khoản 1 biểu đồ 7 ngày (tuần và phiên 5 giờ) lấy qua WS `history/history_during_period` 10 phút/lần.
-- Màu: theme **dark neon** của palette-axi (`generate --preset neon-dark`: nền navy, Vonupt = fuchsia, Vokupt = cyan, ok/warn/bad cùng dải sáng; khung, thanh, vòng, đường biểu đồ có quầng sáng neon). Token ghi bằng hex đã kẹp sRGB; kiểm: `palette-axi analyze dashboards/claude/claude-code-card.js --bg "#0a1122"` phải 7/7.
-- Sửa dashboard: `python dashboards/claude/push.py` — chép JS lên `/config/www/claude/` qua SSH, cập nhật resource `?v=<hash>` (app tải bản mới), ghi view bằng WS `lovelace/config/save` (sửa `.storage` không có tác dụng).
+- Giao diện: một card tự viết toàn trang [`ha/claude-code-card.js`](../ha/claude-code-card.js) (view `panel`, không cần card HACS): mỗi tài khoản 1 khối — vòng % tuần có vạch "tiêu đều", thanh 5 giờ / tuần / từng model (tự dò `*_weekly_*_limit_usage`), đếm ngược, nhãn nhịp (Tiêu nhanh / Đúng nhịp / Còn dư nhiều), khối API; dưới cùng mỗi tài khoản 1 biểu đồ 7 ngày (tuần và phiên 5 giờ) lấy qua WS `history/history_during_period` 10 phút/lần.
+- Màu: theme **dark neon** của palette-axi (`generate --preset neon-dark`: nền navy, Vonupt = fuchsia, Vokupt = cyan, ok/warn/bad cùng dải sáng; khung, thanh, vòng, đường biểu đồ có quầng sáng neon). Token ghi bằng hex đã kẹp sRGB; kiểm: `palette-axi analyze ha/claude-code-card.js --bg "#0a1122"` phải 7/7.
+- Sửa package/dashboard: `python ha/push.py` (`--xem` chỉ so, `--ghi-de` ghi đè bản bị sửa trên HA) — chép package + JS qua SSH, package đổi thì `homeassistant.reload_all`, cập nhật resource `?v=<hash>` (app tải bản mới), ghi view bằng WS `lovelace/config/save` (sửa `.storage` không có tác dụng).
 - Bật phần API: trong `/config/secrets.yaml` trên HA đã có sẵn 2 dòng `anthropic_admin_key_vonupt` / `_vokupt` giá trị `"DAN_ADMIN_KEY_VAO_DAY"` → dán key vào giữa hai dấu nháy, rồi **khởi động lại HA**. Không cần PC1.
-- Thêm tài khoản: Add Integration → Claude Usage (trình duyệt đăng nhập claude.ai đúng tài khoản), đổi entity_id sang `sensor.claude_<slug>_*`, thêm vào `ACCOUNTS` trong `push.py`.
+- Thêm tài khoản: Add Integration → Claude Usage (trình duyệt đăng nhập claude.ai đúng tài khoản), đổi entity_id sang `sensor.claude_<slug>_*`, thêm vào `ACCOUNTS` trong `ha/push.py` và `TAI_KHOAN` trong `pc1/claude_gia_han.py`.
 - Chuỗi refresh OAuth sống ~30 ngày: khi HA báo *Re-authenticate* trên entry Claude Usage thì đăng nhập lại; card hiện "⚠️ Lỗi đọc API" khi `api_error = 1`.
 
 ## Bẫy đã gặp

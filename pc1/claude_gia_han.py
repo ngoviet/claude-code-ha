@@ -26,16 +26,16 @@ TAI_KHOAN = ("vonupt", "vokupt")
 # KHÔNG đặt trong AppData: Claude Desktop là gói MSIX, tiến trình con của nó ghi AppData\Local bị chuyển sang
 # AppData\Local\Packages\Claude_*\LocalCache ⇒ Task Scheduler không thấy (gặp 2026-11-22). Home thì không bị chuyển.
 GOC = Path.home() / ".claude-gia-han"
-REPO = Path(__file__).resolve().parent.parent
+ENV = Path(os.environ.get("HA_CONFIG_ENV", "D:/code/HA-Config/.env"))  # HA_URL, HA_TOKEN: không chép khoá sang repo này
 CHROME = [
     rf"{os.environ.get('ProgramFiles', '')}\Google\Chrome\Application\chrome.exe",
     rf"{os.environ.get('ProgramFiles(x86)', '')}\Google\Chrome\Application\chrome.exe",
     rf"{os.environ.get('LOCALAPPDATA', '')}\Google\Chrome\Application\chrome.exe",
 ]
 HELP = [
-    "Run `python tools/claude_gia_han.py doc` để xem giờ gia hạn",
-    "Run `python tools/claude_gia_han.py ghi` để ghi vào HA",
-    "Run `python tools/claude_gia_han.py login <tk>` khi phiên hết hạn",
+    "Run `python pc1/claude_gia_han.py doc` để xem giờ gia hạn",
+    "Run `python pc1/claude_gia_han.py ghi` để ghi vào HA",
+    "Run `python pc1/claude_gia_han.py login <tk>` khi phiên hết hạn",
 ]
 
 
@@ -55,7 +55,7 @@ def loi(msg: str, ma: int = 1, help_: list[str] | None = None) -> None:
 
 def env() -> dict[str, str]:
     out = {}
-    for line in (REPO / ".env").read_text(encoding="utf-8").splitlines():
+    for line in ENV.read_text(encoding="utf-8").splitlines():
         if "=" in line and not line.lstrip().startswith("#"):
             k, v = line.split("=", 1)
             out[k.strip()] = v.strip().strip('"').strip("'")
@@ -147,7 +147,7 @@ def cmd_login(tk: str) -> None:
     (GOC / tk / "org.json").write_text(json.dumps({"org": org["uuid"], "luc": datetime.now().isoformat(timespec="seconds")}),
                                        encoding="utf-8")
     in_ra([f"login: ok · tk {tk} · plan {org.get('rate_limit_tier')}"],
-          [f"Run `python tools/claude_gia_han.py doc {tk}` để thử đọc"])
+          [f"Run `python pc1/claude_gia_han.py doc {tk}` để thử đọc"])
 
 
 def doc_mot(p, tk: str) -> dict:
@@ -202,7 +202,7 @@ def cmd_doc(tks: list[str], ghi: bool) -> None:
 
     tks = tks or [t for t in TAI_KHOAN if trang_thai(t).get("org")]
     if not tks:
-        loi("chưa tài khoản nào login", 1, ["Run `python tools/claude_gia_han.py login vonupt` (và vokupt)"])
+        loi("chưa tài khoản nào login", 1, ["Run `python pc1/claude_gia_han.py login vonupt` (và vokupt)"])
     kq = []
     with sync_playwright() as p:
         for tk in tks:
