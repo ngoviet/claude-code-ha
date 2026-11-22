@@ -8,8 +8,8 @@ Chạy (Python hệ thống của PC1, cần `paramiko` + `websocket-client`):
 
   1. SSH + base64 (host không có sftp-server): 62_claude_api_console.yaml → /config/packages/,
      claude-code-card.js → /config/www/claude/ (URL /local/claude/…)
-  2. Package đổi ⇒ `homeassistant.reload_all` (input_*, template, automation, rest). Đổi Admin key trong secrets.yaml
-     thì `rest.reload` KHÔNG nạp key mới ⇒ khởi động lại HA (docs/claude-code-quota.md).
+  2. Package đổi ⇒ reload input_number/input_datetime/input_text/template/automation (KHÔNG reload_all, KHÔNG
+     rest.reload). Đổi khối `rest:` hay Admin key trong secrets.yaml ⇒ khởi động lại HA (docs/claude-code-quota.md).
   3. WS: resource `?v=<hash>` (đổi file là app tải bản mới), tạo dashboard nếu chưa có, ghi view panel
      (lovelace/config/save; sửa .storage không có tác dụng).
 Nguồn hạn mức: integration HACS `hass_claude_usage` (trickv) → sensor.claude_<tài khoản>_*.
@@ -57,6 +57,7 @@ CONFIG = {"title": "Claude Code", "views": [{
     "theme": "palette-axi-neon",  # theme chung của nhà (HA-Config themes/), không nằm trong repo này
     "cards": [{"type": "custom:claude-code-card", "accounts": ACCOUNTS}],
 }]}
+RELOAD = ("input_number", "input_datetime", "input_text", "template", "automation")
 CR, LF = bytes([13]), bytes([10])
 RONG = hashlib.sha1(b"").hexdigest()
 
@@ -178,8 +179,11 @@ def main() -> None:
     da_ghi = deploy(env, args == ["--ghi-de"])
     ws = WS(env["HA_TOKEN"])
     if PACKAGE in da_ghi:
-        ws.call({"type": "call_service", "domain": "homeassistant", "service": "reload_all"})
-        print("Đã nạp lại cấu hình YAML (homeassistant.reload_all)")
+        # Không dùng homeassistant.reload_all: nó nạp lại cả `rest` của mọi package ⇒ hàng loạt lỗi "unique ID already
+        # exists" (rest không reload sạch) — gặp 2026-11-22, ngay sau đó HA bị restart. Chỉ nạp các domain an toàn.
+        for domain in RELOAD:
+            ws.call({"type": "call_service", "domain": domain, "service": "reload"})
+        print(f"Đã nạp lại: {', '.join(RELOAD)}. Đổi khối `rest:` (URL, header, sensor REST) thì phải KHỞI ĐỘNG LẠI HA.")
     url = f"{CARD_URL}?v={bam(noi_dung(CARD))[:8]}"
     found = [r for r in ws.call({"type": "lovelace/resources"})["result"] if r["url"].split("?")[0] == CARD_URL]
     if not found:

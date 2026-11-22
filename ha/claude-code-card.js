@@ -261,7 +261,8 @@ class ClaudeCodeCard extends HTMLElement {
     if (!st || st === "unknown" || st === "unavailable" || st === "active" || st === "trialing") return "";
     const iso = this._kyGoi(a), han = iso ? fmtNgay(iso) : "";
     const cau = {
-      past_due: `<b>Thanh toán gói bị lỗi.</b> Stripe đang thử trừ tiền lại${han ? `, hạn chót ${esc(han)}` : ""}. Kiểm tra thẻ thanh toán`,
+      // past_due: next_charge_at là kỳ trừ tiền KẾ TIẾP, không phải hạn chót thử lại của Stripe ⇒ gói có thể dừng sớm hơn
+      past_due: `<b>Thanh toán gói bị lỗi.</b> Stripe đang thử trừ tiền lại; gói có thể bị dừng trước kỳ trừ tiền kế tiếp${han ? ` (${esc(han)})` : ""}. Kiểm tra thẻ thanh toán`,
       unpaid: "<b>Gói chưa được thanh toán</b>, có thể bị khoá. Kiểm tra thanh toán",
       canceled: "<b>Gói đã huỷ.</b> Xem lại",
       incomplete_expired: "<b>Gói đã huỷ</b> vì thanh toán đầu không xong. Xem lại",

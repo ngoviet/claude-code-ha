@@ -59,6 +59,7 @@ API: `sensor.claude_api_<tài khoản>_cost_today`, `_cost_month`, `_cache_saved
 ## Bẫy đã gặp
 
 - Tên gói trong device ("Max") khác desktop app ("Ultra") cho cùng tài khoản ⇒ tên gói khai tay trong `ACCOUNTS`.
+- **Không dùng `homeassistant.reload_all`** sau khi đổi package: nó nạp lại `rest` của mọi package ⇒ hàng loạt lỗi "unique ID … already exists" (2026-11-22, ~26 giây sau HA bị một lệnh `homeassistant.restart` không rõ nguồn khởi động lại). `ha/push.py` chỉ reload input_*/template/automation.
 - `rest.reload` **không** nạp key mới: sensor cũ cùng unique_id vẫn chạy với key cũ, bộ mới bị bỏ qua (log *"unique ID … already exists - ignoring"*) ⇒ đổi key phải restart HA.
 - Admin API trả **403** với tổ chức cá nhân ("… Individual Org") dù key đúng loại ⇒ Console → Tổ chức → *Chuyển đổi thành nhóm*. Key `sk-ant-usr-…` gắn workspace ⇒ **401**; phải tạo key không gắn workspace (scope organization).
 - Card `conditional` coi entity **chưa tồn tại** là không khớp mọi điều kiện (kể cả `state: unavailable`) ⇒ card tự viết tự hiện lời nhắc "chưa có Admin key" khi sensor API thiếu hoặc `unavailable`.
