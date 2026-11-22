@@ -45,7 +45,7 @@ API: `sensor.claude_api_<tài khoản>_cost_today`, `_cost_month`, `_cache_saved
 - `status` trong `subscription_details`: `active`, hoặc `past_due` khi lần trừ tiền gần nhất thất bại (Stripe thử lại tới `next_charge_at`). Script ghi vào `input_text.claude_api_<tk>_plan_status`; khác `active`/`trialing` thì card hiện khung đỏ cảnh báo kèm link claude.ai › Billing.
 - Phiên hết hạn (log báo `phiên hết hạn hoặc bị chặn`): chạy lại `python pc1/claude_gia_han.py login <tk>`.
 - Bẫy: Google **chặn đăng nhập** trong trình duyệt do Playwright điều khiển ⇒ `login` mở Chrome thường, chủ đăng nhập rồi đóng cửa sổ; chạy ẩn sau đó dùng chung hồ sơ. Ở chế độ ẩn Cloudflare hiện "Just a moment" vài giây ⇒ gọi API ngay thì 403, script chờ và gọi lại.
-- Giới hạn bậc tháng cũng không có API: khai `month_limit` trong `ACCOUNTS` ở `ha/push.py`.
+- Giới hạn bậc tháng cũng không có API: khai `month_limit` trong `ha/accounts.local.json` (không commit; `ha/push.py` ghép vào `ACCOUNTS`).
 
 ## Vận hành
 

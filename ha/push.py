@@ -50,8 +50,15 @@ DASHBOARD_META = {
 # Thêm tài khoản: thêm entry Claude Usage trong HA, đổi entity_id sang sensor.claude_<slug>_*,
 # thêm khối REST + secret + helper trong 62_claude_api_console.yaml, thêm dòng ở đây và ở TAI_KHOAN của pc1/claude_gia_han.py.
 # month_limit = "giới hạn bậc" (USD/tháng) trên dashboard Console; API không trả, bỏ trống thì không vẽ thanh.
+# Số này là thông tin riêng ⇒ khai trong ha/accounts.local.json (KHÔNG commit, xem .gitignore), dạng
+#   {"vonupt": {"month_limit": 123}, "vokupt": {"month_limit": 456}}
 ACCOUNTS = [{"slug": "vonupt", "name": "Vonupt", "plan": "Ultra"},
             {"slug": "vokupt", "name": "Vokupt", "plan": "Ultra"}]
+_LOCAL = HERE / "accounts.local.json"
+if _LOCAL.is_file():
+    _rieng = json.loads(_LOCAL.read_text(encoding="utf-8"))
+    for _a in ACCOUNTS:
+        _a.update(_rieng.get(_a["slug"], {}))
 CONFIG = {"title": "Claude Code", "views": [{
     "title": "Hạn mức", "path": "han-muc", "icon": "mdi:gauge", "type": "panel",
     "theme": "palette-axi-neon",  # theme chung của nhà (HA-Config themes/), không nằm trong repo này
