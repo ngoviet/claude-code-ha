@@ -30,6 +30,15 @@ const fmtTok = (v) => {
 const pad = (n) => String(n).padStart(2, "0");
 const fmtNgay = (iso) => iso.split("-").reverse().join("/");
 const conNgay = (iso) => Math.ceil((new Date(`${iso}T23:59:59`) - Date.now()) / 864e5);
+// Đếm ngược tới mốc (ms): "3 ngày 7 giờ 41 phút 12 giây"; bộ đếm 1 s chỉ thay chữ các .dem, không vẽ lại card
+function demNguoc(den) {
+  let s = Math.floor((den - Date.now()) / 1000);
+  if (s <= 0) return "đến hạn";
+  const n = Math.floor(s / 86400); s %= 86400;
+  const g = Math.floor(s / 3600); s %= 3600;
+  const p = Math.floor(s / 60); s %= 60;
+  return `${n ? `${n} ngày ` : ""}${n || g ? `${pad(g)} giờ ` : ""}${pad(p)} phút ${pad(s)} giây`;
+}
 // Gói tháng tự gia hạn: ngày đã nhập qua rồi thì dời từng tháng tới kỳ kế tiếp (không ghi lại helper)
 function kyToi(iso) {
   const [y, m, d] = iso.split("-").map(Number);
@@ -125,6 +134,7 @@ h1 .logo { width: 30px; height: 30px; border-radius: 9px; display: grid; place-i
 .goi { font-size: 14px; color: var(--dim); display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
 .goi b { color: var(--fg); font-weight: 600; }
 .goi .sua { margin-left: 0; }
+.goi .dem { font-variant-numeric: tabular-nums; }
 .uoc { grid-column: 1 / -1; font-size: 14px; color: var(--dim); }
 .tang { font-size: 13px; font-weight: 600; color: var(--dim); margin-left: 4px; }
 .goiy { grid-column: 1 / -1; font-size: 13px; color: var(--dim); }
@@ -157,8 +167,11 @@ class ClaudeCodeCard extends HTMLElement {
 
   connectedCallback() {
     this._tick = setInterval(() => this._ve(true), 30000);
+    this._giay = setInterval(() => {
+      for (const el of this.shadowRoot?.querySelectorAll(".dem[data-den]") || []) el.textContent = demNguoc(+el.dataset.den);
+    }, 1000);
   }
-  disconnectedCallback() { clearInterval(this._tick); this._ro?.disconnect(); }
+  disconnectedCallback() { clearInterval(this._tick); clearInterval(this._giay); this._ro?.disconnect(); }
 
   set hass(h) {
     this._hass = h;
@@ -226,16 +239,16 @@ class ClaudeCodeCard extends HTMLElement {
     return iso > "2020" ? kyToi(iso) : null;
   }
 
-  // "19:42" nếu helper có giờ thật (00:00:00 = chỉ nhập ngày, không hiện)
+  // "19:42:20" nếu helper có giờ thật (00:00:00 = chỉ nhập ngày, không hiện)
   _gioGoi(a) {
-    const g = (this._s(`input_datetime.claude_api_${a.slug}_plan_renew`) || "").slice(11, 16);
-    return g && g !== "00:00" ? g : "";
+    const g = (this._s(`input_datetime.claude_api_${a.slug}_plan_renew`) || "").slice(11, 19);
+    return g && g !== "00:00:00" ? g : "";
   }
 
   _goi(a) {
     const iso = this._kyGoi(a), con = iso ? conNgay(iso) : null, gio = this._gioGoi(a);
     return `<div class="goi"><span>Gói${a.plan ? ` <b>${esc(a.plan)}</b>` : ""}</span>
-      ${iso ? `<span>gia hạn <b>${gio ? `${esc(gio)} ` : ""}${esc(fmtNgay(iso))}</b> · còn <b>${con.toLocaleString("vi-VN")} ngày</b></span>` : "<span>chưa nhập ngày gia hạn</span>"}
+      ${iso ? `<span>gia hạn <b>${gio ? `${esc(gio.slice(0, 5))} ` : ""}${esc(fmtNgay(iso))}</b> · còn <b class="dem"${gio ? ` data-den="${new Date(`${iso}T${gio}`).getTime()}"` : ""}>${gio ? demNguoc(new Date(`${iso}T${gio}`).getTime()) : `${con.toLocaleString("vi-VN")} ngày`}</b></span>` : "<span>chưa nhập ngày gia hạn</span>"}
       <button class="sua" data-sua="goi" data-tk="${esc(a.slug)}">sửa</button></div>`;
   }
 
