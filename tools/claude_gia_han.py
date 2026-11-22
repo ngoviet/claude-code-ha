@@ -3,7 +3,7 @@
 Nguồn: GET https://claude.ai/api/organizations/{org}/subscription_details (endpoint nội bộ của trang
 Settings › Billing, không công bố) → `next_charge_at` (UTC, chính xác tới giây). Chỉ gọi được bằng
 phiên đăng nhập claude.ai ⇒ mỗi tài khoản 1 hồ sơ trình duyệt Playwright riêng trên PC1, ngoài repo:
-%LOCALAPPDATA%\\claude-gia-han\\<tk>. Cookie KHÔNG lên HA; HA chỉ nhận giờ qua input_datetime.set_datetime.
+%USERPROFILE%\\.claude-gia-han\\<tk>. Cookie KHÔNG lên HA; HA chỉ nhận giờ qua input_datetime.set_datetime.
 
 Lệnh:
   login <tk>          mở cửa sổ claude.ai, chủ tự đăng nhập đúng tài khoản; lưu org của gói
@@ -23,7 +23,9 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 TAI_KHOAN = ("vonupt", "vokupt")
-GOC = Path(os.environ.get("LOCALAPPDATA", Path.home())) / "claude-gia-han"
+# KHÔNG đặt trong AppData: Claude Desktop là gói MSIX, tiến trình con của nó ghi AppData\Local bị chuyển sang
+# AppData\Local\Packages\Claude_*\LocalCache ⇒ Task Scheduler không thấy (gặp 2026-11-22). Home thì không bị chuyển.
+GOC = Path.home() / ".claude-gia-han"
 REPO = Path(__file__).resolve().parent.parent
 CHROME = [
     rf"{os.environ.get('ProgramFiles', '')}\Google\Chrome\Application\chrome.exe",
@@ -226,6 +228,14 @@ def cmd_doc(tks: list[str], ghi: bool) -> None:
 
 def main() -> None:
     a = sys.argv[1:]
+    if "--log" in a:  # lịch Task Scheduler chạy pythonw (không console) ⇒ ghi kết quả ra file
+        i = a.index("--log")
+        if i + 1 >= len(a):
+            loi("--log cần đường dẫn file", 2)
+        f = open(a[i + 1], "w", encoding="utf-8")  # noqa: SIM115  (mở suốt đời tiến trình)
+        sys.stdout = sys.stderr = f
+        print(f"# {datetime.now().isoformat(timespec='seconds')}", flush=True)
+        a = a[:i] + a[i + 2:]
     if not a or a[0] in ("-h", "--help", "help"):
         in_ra([__doc__.strip()])
         sys.exit(0)
@@ -244,5 +254,6 @@ def main() -> None:
 
 
 if __name__ == "__main__":
-    sys.stdout.reconfigure(encoding="utf-8")
+    if sys.stdout is not None:  # pythonw: stdout = None
+        sys.stdout.reconfigure(encoding="utf-8")
     main()
