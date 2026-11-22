@@ -36,7 +36,7 @@ function kyToi(iso) {
   for (let i = 0; i < 240; i++) {
     const c = new Date(y, m - 1 + i, d);
     const k = `${c.getFullYear()}-${pad(c.getMonth() + 1)}-${pad(c.getDate())}`;
-    if (conNgay(k) >= 0) return k;
+    if (conNgay(k) > 0) return k; // ngày đã qua cho Math.ceil(-0,x) = -0, mà -0 >= 0 vẫn đúng ⇒ dùng > 0
   }
   return iso;
 }
@@ -184,7 +184,7 @@ class ClaudeCodeCard extends HTMLElement {
       return;
     }
     const goi = loai === "goi";
-    const v = window.prompt(goi ? "Ngày gia hạn gói (dd/mm/yyyy, xem claude.ai › Settings › Billing):"
+    const v = window.prompt(goi ? "Ngày gia hạn gói (dd/mm/yyyy, xem claude.ai › Settings › Billing). Script PC1 tự ghi giờ mỗi ngày, chỉ sửa khi PC1 tắt lâu:"
       : "Ngày hết hạn credit được tặng (dd/mm/yyyy, xem Console › Billing › Promotional credits):");
     if (v === null) return;
     const m = v.trim().match(/^(\d{1,2})[/.-](\d{1,2})[/.-](\d{4})$/);
@@ -220,15 +220,22 @@ class ClaudeCodeCard extends HTMLElement {
     </div>`;
   }
 
+  // plan_renew có giờ ("YYYY-MM-DD HH:MM:SS", script PC1 ghi từ claude.ai) ⇒ phần ngày cho kyToi/conNgay
   _kyGoi(a) {
-    const iso = this._s(`input_datetime.claude_api_${a.slug}_plan_renew`);
-    return (iso || "") > "2020" ? kyToi(iso) : null;
+    const iso = (this._s(`input_datetime.claude_api_${a.slug}_plan_renew`) || "").slice(0, 10);
+    return iso > "2020" ? kyToi(iso) : null;
+  }
+
+  // "19:42" nếu helper có giờ thật (00:00:00 = chỉ nhập ngày, không hiện)
+  _gioGoi(a) {
+    const g = (this._s(`input_datetime.claude_api_${a.slug}_plan_renew`) || "").slice(11, 16);
+    return g && g !== "00:00" ? g : "";
   }
 
   _goi(a) {
-    const iso = this._kyGoi(a), con = iso ? conNgay(iso) : null;
+    const iso = this._kyGoi(a), con = iso ? conNgay(iso) : null, gio = this._gioGoi(a);
     return `<div class="goi"><span>Gói${a.plan ? ` <b>${esc(a.plan)}</b>` : ""}</span>
-      ${iso ? `<span>gia hạn <b>${esc(fmtNgay(iso))}</b> · còn <b>${con.toLocaleString("vi-VN")} ngày</b></span>` : "<span>chưa nhập ngày gia hạn</span>"}
+      ${iso ? `<span>gia hạn <b>${gio ? `${esc(gio)} ` : ""}${esc(fmtNgay(iso))}</b> · còn <b>${con.toLocaleString("vi-VN")} ngày</b></span>` : "<span>chưa nhập ngày gia hạn</span>"}
       <button class="sua" data-sua="goi" data-tk="${esc(a.slug)}">sửa</button></div>`;
   }
 

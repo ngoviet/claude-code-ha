@@ -33,7 +33,16 @@ API: `sensor.claude_api_<tài khoản>_cost_today`, `_cost_month`, `_cache_saved
 - Analytics trễ khoảng 3 giờ (đo 2026-11-04: lúc 15:47 UTC mới có tới giờ 12), `usage_report` 1h mới hơn. `cost_pending` = token + web search (0,01 USD/lượt) của các giờ sau `cost_data_until` × bảng giá trong template; số dư, "Chi hôm nay", "Chi tháng này" đều cộng phần này. Công thức khớp `cost_report` tới cent ở ngày đã đóng. Thêm model mới phải sửa bảng giá trong package; Haiku 5.5 prompt > 100K tính giá thường nên có thể thấp hơn thật. Giờ đang chạy thì cả hai API chưa có, nên HA vẫn có thể thấp hơn Console.
 - `cost_closed` `unavailable` từ lúc chốt tới 07:00 giờ VN là bình thường: ngày mốc = hôm nay UTC thì `cost_report` trả 400 (chưa có ngày đóng); số dư không phụ thuộc sensor này.
 - Hạn dùng: bấm *sửa* cạnh "Hạn dùng" (`input_datetime.claude_api_<tk>_credit_expiry`, `2000-01-01` = chưa nhập). Lấy ngày ở Console › Billing › Promotional credits. Credit tự mua hết hạn [1 năm sau ngày mua](https://support.claude.com/en/articles/8977456-how-do-i-pay-for-my-api-usage); nhiều đợt thì ghi hạn gần nhất.
-- Ngày gia hạn gói: `input_datetime.claude_api_<tk>_plan_renew`, bấm *sửa* trên card, lấy ở claude.ai › Settings › Billing. API usage không trả ngày này; `~/.claude.json` chỉ có `subscriptionCreatedAt`. Qua ngày đã nhập thì card tự dời từng tháng (đúng với gói tháng; gói năm phải nhập lại). Credit tặng chưa nhập hạn riêng thì card lấy theo kỳ gói, ghi "theo kỳ gói".
+- Giờ gia hạn gói: `input_datetime.claude_api_<tk>_plan_renew` (**có giờ** từ 2026-11-22), do PC1 tự ghi — xem mục *Giờ gia hạn tự động* dưới. Qua ngày đã ghi thì card tự dời từng tháng (đúng với gói tháng). Credit tặng chưa nhập hạn riêng thì card lấy theo kỳ gói, ghi "theo kỳ gói".
+
+### Giờ gia hạn tự động (PC1, 2026-11-22)
+
+- Nguồn: `GET https://claude.ai/api/organizations/{org}/subscription_details` — endpoint nội bộ của trang Settings › Billing, trả `next_charge_at` (UTC, tới giây), `plan_ending_at` (khác `null` khi đã huỷ/hạ gói), `status`, `billing_interval`. Chỉ gọi được bằng **cookie claude.ai**; OAuth `user:profile` không có (profile chỉ có `subscription_created_at`, **không** dùng tính ngày gia hạn được: Vokupt tạo ngày 19, kỳ tính tiền ngày 21). Trên GitHub chưa thấy ai dùng endpoint này.
+- Org đúng là org `billing_type = stripe_subscription` (mỗi tài khoản còn 1 org `prepaid` của API, không có `subscription_details`).
+- Script [`tools/claude_gia_han.py`](../tools/claude_gia_han.py): `login <tk>` · `doc` (chỉ đọc) · `ghi` (gọi `input_datetime.set_datetime` bằng `timestamp`). Hồ sơ trình duyệt mỗi tài khoản ở `%LOCALAPPDATA%\claude-gia-han\<tk>` (ngoài repo, cookie **không** lên HA). Nếu `next_charge_at` rỗng (gói sắp dừng) thì không ghi, báo lỗi.
+- Lịch: Task Scheduler **`HA - Claude gio gia han`** 08:30 hằng ngày (bỏ lỡ thì chạy khi máy bật), log `%LOCALAPPDATA%\claude-gia-han\lan-chay-cuoi.log`. Gỡ: `Unregister-ScheduledTask "HA - Claude gio gia han"`.
+- Phiên hết hạn (log báo `phiên hết hạn hoặc bị chặn`): chạy lại `python tools/claude_gia_han.py login <tk>`.
+- Bẫy: Google **chặn đăng nhập** trong trình duyệt do Playwright điều khiển ⇒ `login` mở Chrome thường, chủ đăng nhập rồi đóng cửa sổ; chạy ẩn sau đó dùng chung hồ sơ. Ở chế độ ẩn Cloudflare hiện "Just a moment" vài giây ⇒ gọi API ngay thì 403, script chờ và gọi lại.
 - Giới hạn bậc tháng cũng không có API: khai `month_limit` trong `ACCOUNTS` ở `push.py`.
 
 ## Vận hành
