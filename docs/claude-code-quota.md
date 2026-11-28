@@ -1,6 +1,6 @@
 # Hạn mức Claude Code + lượng dùng API trên HA (2026-10-31)
 
-Dashboard **`/claude-code`** ("Claude Code"): hạn mức gói thuê bao của 2 tài khoản (phiên 5 giờ, tuần mọi model, tuần Fable), đếm ngược tới reset, nhịp tiêu tuần, lịch sử; cùng chi phí/token **API** trên Claude Console.
+Dashboard **`/claude-code`** ("Claude Code"): hạn mức gói thuê bao của tài khoản Vokupt (Vonupt bỏ từ 2026-11-28: xoá entry Claude Usage, khối API Console và helper) (phiên 5 giờ, tuần mọi model, tuần Fable), đếm ngược tới reset, nhịp tiêu tuần, lịch sử; cùng chi phí/token **API** trên Claude Console.
 Báo cáo nghiên cứu + so sánh phương án: https://claude.ai/artifact/XxvfCy29n5C8KouWa7J1JV
 
 ## Nguồn dữ liệu
@@ -8,13 +8,13 @@ Báo cáo nghiên cứu + so sánh phương án: https://claude.ai/artifact/Xxvf
 | Phần | Nguồn | Ghi chú |
 |---|---|---|
 | Hạn mức thuê bao | Integration HACS **`hass_claude_usage`** ([trickv/hass-claude-usage](https://github.com/trickv/hass-claude-usage) v10) → `GET api.anthropic.com/api/oauth/usage` (endpoint sau `/usage`, **không công bố**) | Mỗi tài khoản 1 entry OAuth (luồng đăng nhập của Anthropic, scope chỉ `user:profile` ⇒ token **không chạy được model**). Poll 300 s (đừng hạ: gọi dồn bị chặn ~24 giờ, mất luôn `/usage` trong Claude Code) |
-| API Console | Admin API chính thức `cost_report` + `usage_report/messages` → [ha/62_claude_api_console.yaml](../ha/62_claude_api_console.yaml) | **Mỗi tài khoản 1 Admin key** (Console riêng): secret `anthropic_admin_key_vonupt`, `anthropic_admin_key_vokupt` (`sk-ant-admin01-…`, Console phải là **Organization**). Ngày theo **UTC**. `amount` tính bằng **cent**. Key chưa có/sai ⇒ sensor `unavailable` |
+| API Console | Admin API chính thức `cost_report` + `usage_report/messages` → [ha/62_claude_api_console.yaml](../ha/62_claude_api_console.yaml) | **Mỗi tài khoản 1 Admin key** (Console riêng): secret `anthropic_admin_key_vokupt` (`sk-ant-admin01-…`, Console phải là **Organization**). Ngày theo **UTC**. `amount` tính bằng **cent**. Key chưa có/sai ⇒ sensor `unavailable` |
 
 Chủ chọn integration HACS (chạy cả khi PC1 tắt), chấp nhận token OAuth nằm trên HA và trong backup HA.
 
 ## Entity
 
-`sensor.claude_<tài khoản>_*`, tài khoản = `vonupt`, `vokupt` (đã đổi từ `sensor.claude_usage_<tên>_ultra_*`; bỏ tên gói vì gói đổi thì entity_id không đổi theo):
+`sensor.claude_<tài khoản>_*`, tài khoản = `vokupt` (đã đổi từ `sensor.claude_usage_<tên>_ultra_*`; bỏ tên gói vì gói đổi thì entity_id không đổi theo):
 
 - `session_usage`, `week_usage`, `weekly_fable_limit_usage` (%) · `session_reset_time`, `weekly_reset_time` (timestamp)
 - `week_usage_pace` = % đã dùng − % thời gian tuần đã trôi (dương = tiêu nhanh hơn đều)
@@ -50,11 +50,11 @@ API: `sensor.claude_api_<tài khoản>_cost_today`, `_cost_month`, `_cache_saved
 ## Vận hành
 
 - Giao diện: một card tự viết toàn trang [`ha/claude-code-card.js`](../ha/claude-code-card.js) (view `panel`, không cần card HACS): mỗi tài khoản 1 khối — vòng % tuần có vạch "tiêu đều", thanh 5 giờ / tuần / từng model (tự dò `*_weekly_*_limit_usage`), đếm ngược, nhãn nhịp (Tiêu nhanh / Đúng nhịp / Còn dư nhiều), khối API; dưới cùng mỗi tài khoản 1 biểu đồ 7 ngày (tuần và phiên 5 giờ) lấy qua WS `history/history_during_period` 10 phút/lần.
-- Màu: theme **dark neon** của palette-axi (`generate --preset neon-dark`: nền navy, Vonupt = fuchsia, Vokupt = cyan, ok/warn/bad cùng dải sáng; khung, thanh, vòng, đường biểu đồ có quầng sáng neon). Token ghi bằng hex đã kẹp sRGB; kiểm: `palette-axi analyze ha/claude-code-card.js --bg "#0a1122"` phải 7/7.
+- Màu: theme **dark neon** của palette-axi (`generate --preset neon-dark`: nền navy, acc1 = fuchsia, acc2 = cyan (Vokupt, khai `color` trong `ACCOUNTS`), ok/warn/bad cùng dải sáng; khung, thanh, vòng, đường biểu đồ có quầng sáng neon). Token ghi bằng hex đã kẹp sRGB; kiểm: `palette-axi analyze ha/claude-code-card.js --bg "#0a1122"` phải 7/7.
 - Sửa package/dashboard: `python ha/push.py` (`--xem` chỉ so, `--ghi-de` ghi đè bản bị sửa trên HA) — chép package + JS qua SSH, package đổi thì `homeassistant.reload_all`, cập nhật resource `?v=<hash>` (app tải bản mới), ghi view bằng WS `lovelace/config/save` (sửa `.storage` không có tác dụng).
-- Bật phần API: trong `/config/secrets.yaml` trên HA đã có sẵn 2 dòng `anthropic_admin_key_vonupt` / `_vokupt` giá trị `"DAN_ADMIN_KEY_VAO_DAY"` → dán key vào giữa hai dấu nháy, rồi **khởi động lại HA**. Không cần PC1.
+- Bật phần API: trong `/config/secrets.yaml` trên HA đã có sẵn dòng `anthropic_admin_key_vokupt` giá trị `"DAN_ADMIN_KEY_VAO_DAY"` → dán key vào giữa hai dấu nháy, rồi **khởi động lại HA**. Không cần PC1.
 - Thêm tài khoản: Add Integration → Claude Usage (trình duyệt đăng nhập claude.ai đúng tài khoản), đổi entity_id sang `sensor.claude_<slug>_*`, thêm vào `ACCOUNTS` trong `ha/push.py` và `TAI_KHOAN` trong `pc1/claude_gia_han.py`.
-- Chuỗi refresh OAuth sống ~30 ngày: khi HA báo *Re-authenticate* trên entry Claude Usage thì đăng nhập lại; card hiện "⚠️ Lỗi đọc API" khi `api_error = 1`.
+- Chuỗi refresh OAuth sống ~30 ngày: khi HA báo *Re-authenticate* trên entry Claude Usage thì đăng nhập lại; card hiện "⚠️ Lỗi đọc API" khi `api_error = 1`. Đo lại 2026-11-28: cả hai entry (thêm 31/10) cùng báo `Token refresh failed (400)` sau ~28 ngày.
 
 ## Bẫy đã gặp
 

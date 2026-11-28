@@ -13,7 +13,7 @@
  *
  * Cấu hình:
  *   type: custom:claude-code-card
- *   accounts: [{slug: vonupt, name: Vonupt}, {slug: vokupt, name: Vokupt}]   # month_limit: giới hạn bậc Console, USD
+ *   accounts: [{slug: vokupt, name: Vokupt, color: "var(--acc2)"}]   # month_limit: giới hạn bậc Console, USD; color: màu nhận diện (mặc định acc1/acc2 xen kẽ)
  */
 const ACC = ["var(--acc1)", "var(--acc2)"];
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
@@ -63,7 +63,7 @@ function dem(iso) {
 const CSS = `
 :host {
   color-scheme: dark;
-  /* neon-dark của palette-axi; hex = bản đã kẹp vào sRGB. acc1 = fuchsia (Vonupt), acc2 = cyan (Vokupt) */
+  /* neon-dark của palette-axi; hex = bản đã kẹp vào sRGB. acc1 = fuchsia, acc2 = cyan (Vokupt) */
   --bg-edge: var(--secondary-background-color, #060a14); --bg: var(--primary-background-color, #0a1122); --surface: var(--card-background-color, #0e182e); --glow: var(--light-primary-color, #142443); --border: var(--divider-color, #1e2b4a);
   --dim: var(--secondary-text-color, #a2b7d7); --fg: var(--primary-text-color, #e6edf7); --primary: var(--primary-color, #22d3ee); --acc1: #e879f9; --acc2: var(--primary-color, #22d3ee);
   --ok: var(--success-color, #22c55e); --warn: var(--warning-color, #f59e0b); --bad: var(--error-color, #ff716a);
@@ -156,7 +156,7 @@ h1 .logo { width: 30px; height: 30px; border-radius: 9px; display: grid; place-i
 
 class ClaudeCodeCard extends HTMLElement {
   setConfig(c) {
-    this._cfg = { accounts: [{ slug: "vonupt", name: "Vonupt" }, { slug: "vokupt", name: "Vokupt" }], ...c };
+    this._cfg = { accounts: [{ slug: "vokupt", name: "Vokupt", color: "var(--acc2)" }], ...c };
     if (!this.shadowRoot) {
       this.attachShadow({ mode: "open" });
       this.shadowRoot.addEventListener("click", (ev) => {
@@ -351,7 +351,7 @@ class ClaudeCodeCard extends HTMLElement {
          ${choGhi > 0 ? `<div class="ct uoc">Gồm ~${fmtUsd(choGhi)} USD ước tính từ token, API chi phí chưa ghi</div>` : ""}`;
     const doc = this._hass.states[`${s}_week_usage`];
     const phut = doc ? Math.floor((Date.now() - new Date(doc.last_reported || doc.last_updated)) / 60000) : null;
-    return `<section class="the" style="--c:${ACC[i % 2]}">
+    return `<section class="the" style="--c:${a.color || ACC[i % 2]}">
       <div class="dau"><span class="cham"></span><span class="ten">${esc(a.name)}</span>
         <span class="nhan" style="--m:${m}">${nhan}</span></div>
       <div class="chinh">
@@ -384,7 +384,7 @@ class ClaudeCodeCard extends HTMLElement {
       const d = new Date(t);
       g += `<text x="${x(t)}" y="${H - 6}" text-anchor="middle">${pad(d.getDate())}/${pad(d.getMonth() + 1)}</text>`;
     }
-    const mau = ACC[i % 2], chu = [];
+    const mau = a.color || ACC[i % 2], chu = [];
     // Vẽ phiên trước để đường tuần nằm trên
     for (const [hau, nhan, c, tuan] of [["session_usage", "Phiên 5 giờ", "var(--fg)", false], ["week_usage", "Tuần · mọi model", mau, true]]) {
       const pts = (this._ls?.[`sensor.claude_${a.slug}_${hau}`] || []).filter((p) => p[0] >= t0);
