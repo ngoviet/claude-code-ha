@@ -22,7 +22,7 @@ import urllib.request
 from datetime import datetime, timezone
 from pathlib import Path
 
-TAI_KHOAN = ("vonupt", "vokupt")
+TAI_KHOAN = ("vokupt",)  # Vonupt bỏ từ 2026-11-28
 # KHÔNG đặt trong AppData: Claude Desktop là gói MSIX, tiến trình con của nó ghi AppData\Local bị chuyển sang
 # AppData\Local\Packages\Claude_*\LocalCache ⇒ Task Scheduler không thấy (gặp 2026-11-22). Home thì không bị chuyển.
 GOC = Path.home() / ".claude-gia-han"
@@ -202,7 +202,7 @@ def cmd_doc(tks: list[str], ghi: bool) -> None:
 
     tks = tks or [t for t in TAI_KHOAN if trang_thai(t).get("org")]
     if not tks:
-        loi("chưa tài khoản nào login", 1, ["Run `python pc1/claude_gia_han.py login vonupt` (và vokupt)"])
+        loi("chưa tài khoản nào login", 1, ["Run `python pc1/claude_gia_han.py login vokupt`"])
     kq = []
     with sync_playwright() as p:
         for tk in tks:

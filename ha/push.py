@@ -51,9 +51,9 @@ DASHBOARD_META = {
 # thêm khối REST + secret + helper trong 62_claude_api_console.yaml, thêm dòng ở đây và ở TAI_KHOAN của pc1/claude_gia_han.py.
 # month_limit = "giới hạn bậc" (USD/tháng) trên dashboard Console; API không trả, bỏ trống thì không vẽ thanh.
 # Số này là thông tin riêng ⇒ khai trong ha/accounts.local.json (KHÔNG commit, xem .gitignore), dạng
-#   {"vonupt": {"month_limit": 123}, "vokupt": {"month_limit": 456}}
-ACCOUNTS = [{"slug": "vonupt", "name": "Vonupt", "plan": "Ultra"},
-            {"slug": "vokupt", "name": "Vokupt", "plan": "Ultra"}]
+#   {"vokupt": {"month_limit": 456}}
+# color: màu nhận diện tài khoản trên card (biến theme --acc1 fuchsia / --acc2 cyan). Vonupt bỏ từ 2026-11-28.
+ACCOUNTS = [{"slug": "vokupt", "name": "Vokupt", "plan": "Ultra", "color": "var(--acc2)"}]
 _LOCAL = HERE / "accounts.local.json"
 if _LOCAL.is_file():
     _rieng = json.loads(_LOCAL.read_text(encoding="utf-8"))
